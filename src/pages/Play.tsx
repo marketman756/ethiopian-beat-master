@@ -310,7 +310,7 @@ const Play = () => {
     setRound((r) => r + 1);
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    gameTimeRef.current = -800;
+    gameTimeRef.current = -3000;
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
