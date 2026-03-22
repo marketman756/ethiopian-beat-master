@@ -143,17 +143,15 @@ const Play = () => {
       });
 
       // Check for missed tiles (passed the hit zone without being tapped)
-      // Only check after grace period so tiles have time to appear
-      if (gameTime > 1500) {
-        const missed = updated.find(
-          (t) => !t.hit && !t.holding && t.y > HIT_ZONE_BOTTOM + 5
-        );
+      const missed = updated.find(
+        (t) => !t.hit && !t.holding && t.y > HIT_ZONE_BOTTOM + 5
+      );
 
-        if (missed) {
-          console.log("[GAME] MISSED TILE FAIL:", missed, "gameTime:", gameTime);
-          setGamePhase("failed");
-          return updated;
-        }
+      if (missed) {
+        // INSTANT FAIL
+        console.log("[GAME] MISSED TILE FAIL at gameTime:", gameTime, "tile y:", missed.y);
+        setGamePhase("failed");
+        return updated;
       }
 
       // Spawn upcoming tiles
