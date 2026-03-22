@@ -218,8 +218,7 @@ const Play = () => {
         .sort((a, b) => b.y - a.y); // closest to bottom first
 
       if (hittable.length === 0) {
-        // Tapped wrong area — INSTANT FAIL
-        // Only fail if tiles are actually in/near the hit zone (not just anywhere on screen)
+        // Tapped wrong area — only fail if tiles are near the hit zone
         const tilesNearHitZone = prev.filter(
           (t) => !t.hit && t.y > HIT_ZONE_TOP - 30 && t.y < HIT_ZONE_BOTTOM + 10
         );
