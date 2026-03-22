@@ -149,7 +149,7 @@ const Play = () => {
 
       if (missed) {
         // INSTANT FAIL
-        console.log("[GAME] MISSED TILE FAIL at gameTime:", gameTime, "tile y:", missed.y);
+        console.log("[GAME] MISS FAIL gameTime:", gameTime);
         setGamePhase("failed");
         return updated;
       }
