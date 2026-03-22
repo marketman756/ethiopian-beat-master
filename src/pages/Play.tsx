@@ -299,7 +299,7 @@ const Play = () => {
     setRound(0);
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    gameTimeRef.current = -800; // pre-start delay
+    gameTimeRef.current = -3000; // pre-start delay: tiles fall for 3s before reaching hit zone
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
