@@ -203,7 +203,11 @@ const Play = () => {
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhase !== "playing") return;
     // Grace period: don't process taps during the pre-start delay
-    if (gameTimeRef.current < 200) return;
+    if (gameTimeRef.current < 500) {
+      console.log("[GAME] Tap ignored - grace period, gameTime:", gameTimeRef.current);
+      return;
+    }
+    console.log("[GAME] Lane tap:", lane, "gameTime:", gameTimeRef.current, "tiles:", tilesRef.current.length);
     holdingLanesRef.current.add(lane);
 
     setTiles((prev) => {
