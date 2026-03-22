@@ -199,6 +199,8 @@ const Play = () => {
 
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhase !== "playing") return;
+    // Grace period: don't process taps during the pre-start delay
+    if (gameTimeRef.current < 200) return;
     holdingLanesRef.current.add(lane);
 
     setTiles((prev) => {
@@ -216,9 +218,11 @@ const Play = () => {
 
       if (hittable.length === 0) {
         // Tapped wrong area — INSTANT FAIL
-        // Only fail if there are active tiles on screen
-        const activeTiles = prev.filter((t) => !t.hit && t.y > -10 && t.y < 110);
-        if (activeTiles.length > 0) {
+        // Only fail if tiles are actually in/near the hit zone (not just anywhere on screen)
+        const tilesNearHitZone = prev.filter(
+          (t) => !t.hit && t.y > HIT_ZONE_TOP - 30 && t.y < HIT_ZONE_BOTTOM + 10
+        );
+        if (tilesNearHitZone.length > 0) {
           setGamePhase("failed");
         }
         return prev;
