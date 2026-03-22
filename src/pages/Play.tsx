@@ -229,7 +229,9 @@ const Play = () => {
         const tilesNearHitZone = prev.filter(
           (t) => !t.hit && t.y > HIT_ZONE_TOP - 30 && t.y < HIT_ZONE_BOTTOM + 10
         );
+        console.log("[GAME] Wrong tap! Lane:", lane, "tilesNearHitZone:", tilesNearHitZone.length, "allTiles:", prev.length);
         if (tilesNearHitZone.length > 0) {
+          console.log("[GAME] WRONG TAP FAIL - tiles near zone:", tilesNearHitZone.map(t => ({ lane: t.lane, y: t.y.toFixed(1) })));
           setGamePhase("failed");
         }
         return prev;
