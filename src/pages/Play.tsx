@@ -149,6 +149,7 @@ const Play = () => {
 
       if (missed) {
         // INSTANT FAIL
+        console.log("[GAME] MISS FAIL gameTime:", gameTime);
         setGamePhase("failed");
         return updated;
       }
@@ -199,6 +200,8 @@ const Play = () => {
 
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhase !== "playing") return;
+    // Grace period: don't process taps during the pre-start delay
+    if (gameTimeRef.current < 500) return;
     holdingLanesRef.current.add(lane);
 
     setTiles((prev) => {
@@ -215,10 +218,12 @@ const Play = () => {
         .sort((a, b) => b.y - a.y); // closest to bottom first
 
       if (hittable.length === 0) {
-        // Tapped wrong area — INSTANT FAIL
-        // Only fail if there are active tiles on screen
-        const activeTiles = prev.filter((t) => !t.hit && t.y > -10 && t.y < 110);
-        if (activeTiles.length > 0) {
+        // Tapped wrong area — only fail if tiles are near the hit zone
+        const tilesNearHitZone = prev.filter(
+          (t) => !t.hit && t.y > HIT_ZONE_TOP - 30 && t.y < HIT_ZONE_BOTTOM + 10
+        );
+        console.log("[GAME] Wrong tap lane:", lane, "nearHitZone:", tilesNearHitZone.length);
+        if (tilesNearHitZone.length > 0) {
           setGamePhase("failed");
         }
         return prev;
@@ -288,7 +293,7 @@ const Play = () => {
     setRound(0);
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    gameTimeRef.current = -800; // pre-start delay
+    gameTimeRef.current = -3000; // pre-start delay: tiles fall for 3s before reaching hit zone
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
@@ -299,7 +304,7 @@ const Play = () => {
     setRound((r) => r + 1);
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    gameTimeRef.current = -800;
+    gameTimeRef.current = -3000;
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
