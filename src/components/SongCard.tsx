@@ -1,46 +1,68 @@
-import { Play } from "lucide-react";
+import { Play, Volume2 } from "lucide-react";
 import { Song } from "@/lib/songs";
 import { useNavigate } from "react-router-dom";
 
-const difficultyColors = {
-  easy: "bg-emerald-100 text-emerald-700",
-  medium: "bg-amber-100 text-amber-700",
-  hard: "bg-red-100 text-red-700",
+const difficultyColors: Record<string, string> = {
+  easy: "bg-emerald-500 text-white",
+  medium: "bg-amber-500 text-white",
+  hard: "bg-red-500 text-white",
 };
 
 const genreGradients: Record<string, string> = {
-  "Ethio-Jazz": "from-amber-400 to-orange-500",
-  Traditional: "from-emerald-400 to-teal-500",
-  Pop: "from-primary to-blue-400",
-  Classic: "from-rose-400 to-pink-500",
-  World: "from-violet-400 to-purple-500",
+  "Ethio-Jazz": "from-amber-500 via-orange-500 to-red-500",
+  Traditional: "from-emerald-500 via-teal-500 to-cyan-500",
+  Pop: "from-blue-500 via-indigo-500 to-purple-500",
+  Classic: "from-rose-500 via-pink-500 to-purple-500",
+  World: "from-violet-500 via-purple-500 to-indigo-500",
 };
 
-const SongCard = ({ song }: { song: Song }) => {
+const SongCard = ({ song, index }: { song: Song; index?: number }) => {
   const navigate = useNavigate();
-  const gradient = genreGradients[song.genre] || "from-gray-400 to-gray-500";
+  const gradient = genreGradients[song.genre] || "from-gray-500 to-gray-600";
 
   return (
     <button
       onClick={() => navigate(`/play/${song.id}`)}
-      className="group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]"
+      className="group relative flex overflow-hidden rounded-xl text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-xl"
     >
-      <div className={`relative flex h-36 items-center justify-center bg-gradient-to-br ${gradient}`}>
-        <div className="text-4xl font-black text-white/20 select-none">♪</div>
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-card shadow-lg">
-            <Play className="h-5 w-5 text-foreground ml-0.5" />
+      {/* Background gradient */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-90`} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+
+      {/* Content */}
+      <div className="relative flex w-full items-center gap-3 p-3">
+        {/* Song number / thumbnail area */}
+        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg bg-black/20 backdrop-blur-sm">
+          {index !== undefined ? (
+            <span className="text-2xl font-black text-white/80">{index + 1}</span>
+          ) : (
+            <div className="text-3xl font-black text-white/30 select-none">♪</div>
+          )}
+          <Volume2 className="absolute bottom-1 left-1 h-3 w-3 text-white/40" />
+        </div>
+
+        {/* Song info */}
+        <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+          <h3 className="font-bold text-white text-sm leading-tight line-clamp-1 drop-shadow-sm">
+            {song.title}
+          </h3>
+          <p className="text-xs text-white/70 line-clamp-1">{song.artist}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] text-white/50">{song.duration}</span>
+            <span className="text-[10px] text-white/50">•</span>
+            <span className="text-[10px] text-white/50">{song.bpm} BPM</span>
           </div>
         </div>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="font-semibold leading-tight line-clamp-1">{song.title}</h3>
-        <p className="text-sm text-muted-foreground line-clamp-1">{song.artist}</p>
-        <div className="mt-auto flex items-center gap-2 pt-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${difficultyColors[song.difficulty]}`}>
+
+        {/* Right side: difficulty + play */}
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase ${difficultyColors[song.difficulty]}`}>
             {song.difficulty}
           </span>
-          <span className="text-xs text-muted-foreground">{song.duration}</span>
+          <div className="flex h-9 w-20 items-center justify-center rounded-md bg-gray-900/60 text-white text-xs font-bold gap-1.5 group-hover:bg-gray-900/80 transition-colors">
+            <Play className="h-3.5 w-3.5 fill-white" />
+            PLAY
+          </div>
         </div>
       </div>
     </button>
