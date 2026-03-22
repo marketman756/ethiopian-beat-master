@@ -34,7 +34,7 @@ export const ReadyOverlay = ({ song, loadingProgress, onStart }: ReadyOverlayPro
         </svg>
         <div className="absolute flex flex-col items-center">
           {loadingProgress >= 100 ? (
-            <button onClick={onStart} className="flex flex-col items-center gap-1 group">
+            <button onClick={(e) => { e.stopPropagation(); onStart(); }} className="flex flex-col items-center gap-1 group">
               <PlayIcon className="h-8 w-8 text-white group-hover:scale-110 transition-transform" />
               <span className="text-xs text-white/80 font-medium">TAP</span>
             </button>
