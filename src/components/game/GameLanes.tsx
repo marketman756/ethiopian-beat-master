@@ -9,15 +9,12 @@ interface GameLanesProps {
 const GameLanes = ({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => {
   return (
     <>
-      {/* Lane dividers */}
-      <div className="absolute inset-0 flex">
+      {/* Lane dividers — thin subtle white lines like MT3 */}
+      <div className="absolute inset-0 flex pointer-events-none">
         {Array.from({ length: LANES }).map((_, i) => (
-          <div key={i} className="flex-1 border-r border-white/10 last:border-r-0" />
+          <div key={i} className="flex-1 border-r border-white/[0.12] last:border-r-0" />
         ))}
       </div>
-
-      {/* Bottom hit zone indicator */}
-      <div className="absolute bottom-[12%] left-0 right-0 h-[2px] bg-white/20" />
 
       {/* Tiles */}
       {tiles.filter((t) => !t.hit || (t.type === "hold" && t.holding)).map((tile) => (
@@ -31,12 +28,12 @@ const GameLanes = ({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => {
           <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane />
         ))}
 
-      {/* Tap zones */}
-      <div className="absolute bottom-0 left-0 right-0 flex h-[35%]">
+      {/* Tap zones — invisible, full bottom area */}
+      <div className="absolute bottom-0 left-0 right-0 flex h-[40%] z-10">
         {Array.from({ length: LANES }).map((_, i) => (
           <button
             key={i}
-            className="flex-1 active:bg-white/10 transition-colors duration-50"
+            className="flex-1 active:bg-white/[0.06] transition-colors duration-75"
             onPointerDown={() => onLaneTap(i)}
             onPointerUp={() => onLaneRelease(i)}
             onPointerCancel={() => onLaneRelease(i)}
@@ -55,17 +52,15 @@ interface TileElementProps {
 
 const TileElement = ({ tile, isSecondLane }: TileElementProps) => {
   const laneWidth = 100 / LANES;
-  const left = tile.lane * laneWidth + 0.5;
-  const width = laneWidth - 1;
+  const gapPx = 1.5; // gap in percentage
+  const left = tile.lane * laneWidth + gapPx / 2;
+  const width = laneWidth - gapPx;
 
+  // HOLD TILE — cyan/turquoise with circle indicator and +2
   if (tile.type === "hold") {
     return (
       <div
-        className={`absolute rounded-sm transition-opacity duration-75 ${
-          tile.holding
-            ? "bg-emerald-500 border border-emerald-400/50 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
-            : "bg-gray-900 border border-gray-700/40"
-        }`}
+        className="absolute transition-opacity duration-75"
         style={{
           left: `${left}%`,
           width: `${width}%`,
@@ -73,15 +68,30 @@ const TileElement = ({ tile, isSecondLane }: TileElementProps) => {
           height: `${tile.holdHeight}%`,
         }}
       >
-        {/* Hold indicator stripe */}
-        <div className="absolute inset-x-0 bottom-0 h-3 bg-white/10 rounded-b-sm" />
+        {/* Hold tile body */}
+        <div
+          className={`absolute inset-0 rounded-t-[4px] rounded-b-[20px] ${
+            tile.holding
+              ? "bg-gradient-to-b from-cyan-400 to-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.5)]"
+              : "bg-gradient-to-b from-cyan-400 to-cyan-600"
+          }`}
+        />
+        {/* Score indicator */}
+        <div className="absolute inset-x-0 bottom-[30%] flex items-center justify-center">
+          <span className="text-white/80 font-bold text-sm drop-shadow-md">+2</span>
+        </div>
+        {/* Circle indicator at bottom */}
+        <div className="absolute inset-x-0 bottom-[8%] flex items-center justify-center">
+          <div className="w-6 h-6 rounded-full border-2 border-white/70 bg-transparent" />
+        </div>
       </div>
     );
   }
 
+  // TAP TILE — solid black, sharp edges, like piano keys
   return (
     <div
-      className="absolute rounded-sm bg-gray-900 border border-gray-700/40 shadow-lg"
+      className="absolute bg-gray-950 rounded-[3px] shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
       style={{
         left: `${left}%`,
         width: `${width}%`,
