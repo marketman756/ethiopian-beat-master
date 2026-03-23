@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { songs } from "@/lib/songs";
 import { getChartForSong, ChartNote } from "@/lib/tileCharts";
 import {
@@ -14,10 +14,18 @@ import {
   RoundCompleteOverlay, SongCompleteOverlay,
 } from "@/components/game/GameOverlays";
 
-const BASE_FALL_SPEED = 3.5; // % per frame at 60fps
+const BASE_FALL_SPEED = 3.5;
 const HIT_ZONE_TOP = 70;
 const HIT_ZONE_BOTTOM = 95;
-const HOLD_HEIGHT_BASE = 18; // % of game area
+const HOLD_HEIGHT_BASE = 18;
+
+// Background color themes that shift during gameplay — like MT3
+const BG_THEMES = [
+  { from: "from-sky-300", via: "via-blue-400", to: "to-purple-500" },
+  { from: "from-emerald-300", via: "via-green-400", to: "to-teal-500" },
+  { from: "from-violet-300", via: "via-purple-400", to: "to-pink-500" },
+  { from: "from-cyan-300", via: "via-sky-400", to: "to-blue-500" },
+];
 
 const Play = () => {
   const { songId } = useParams();
@@ -34,30 +42,29 @@ const Play = () => {
   const [gamePhase, setGamePhase] = useState<GamePhase>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [round, setRound] = useState(0);
+  const [bgThemeIndex, setBgThemeIndex] = useState(0);
 
   const tileIdRef = useRef(0);
   const animRef = useRef<number>();
   const lastTimeRef = useRef(0);
-  const gameTimeRef = useRef(0); // elapsed game time in ms
+  const gameTimeRef = useRef(0);
   const chartIndexRef = useRef(0);
   const holdingLanesRef = useRef<Set<number>>(new Set());
   const tilesRef = useRef<GameTile[]>([]);
+  const lastBgShiftRef = useRef(0);
 
-  // Keep ref in sync
   useEffect(() => { tilesRef.current = tiles; }, [tiles]);
 
   const speedMultiplier = ROUND_SPEEDS[Math.min(round, ROUND_SPEEDS.length - 1)];
   const currentSpeed = BASE_FALL_SPEED * speedMultiplier;
+  const bgTheme = BG_THEMES[bgThemeIndex % BG_THEMES.length];
 
   // Loading animation
   useEffect(() => {
     if (gamePhase !== "loading") return;
     const interval = setInterval(() => {
       setLoadingProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
+        if (p >= 100) { clearInterval(interval); return 100; }
         return p + Math.random() * 15 + 5;
       });
     }, 200);
@@ -65,54 +72,33 @@ const Play = () => {
   }, [gamePhase]);
 
   useEffect(() => {
-    if (loadingProgress >= 100 && gamePhase === "loading") {
-      setGamePhase("ready");
-    }
+    if (loadingProgress >= 100 && gamePhase === "loading") setGamePhase("ready");
   }, [loadingProgress, gamePhase]);
 
-  // Convert chart time to y position
-  // A note should reach the hit zone (HIT_ZONE_TOP) at its chart time
   const chartTimeToY = useCallback((noteTime: number, currentGameTime: number) => {
-    const timeDiff = noteTime - currentGameTime; // ms until note should be hit
-    // At currentSpeed %/frame and 60fps, speed in %/ms = currentSpeed * 60 / 1000
+    const timeDiff = noteTime - currentGameTime;
     const speedPerMs = (currentSpeed * 60) / 1000;
     return HIT_ZONE_TOP - timeDiff * speedPerMs;
   }, [currentSpeed]);
 
   const spawnUpcomingTiles = useCallback((gameTime: number, notes: ChartNote[]) => {
     const speedPerMs = (currentSpeed * 60) / 1000;
-    const lookAheadMs = (120 / speedPerMs); // how far ahead to spawn (in ms) so tiles start from top
-
     const newTiles: GameTile[] = [];
     while (chartIndexRef.current < notes.length) {
       const note = notes[chartIndexRef.current];
       const y = chartTimeToY(note.time, gameTime);
-
       if (y > -20) {
-        // Time to spawn
         tileIdRef.current++;
         const holdHeight = note.type === "hold" && note.holdDuration
           ? (note.holdDuration * speedPerMs) + HOLD_HEIGHT_BASE
           : 0;
-
         newTiles.push({
-          id: tileIdRef.current,
-          lane: note.lane,
-          type: note.type,
-          lane2: note.lane2,
-          y,
-          holdHeight,
-          hit: false,
-          holding: false,
-          holdComplete: false,
-          hit2: false,
-          chartTime: note.time,
+          id: tileIdRef.current, lane: note.lane, type: note.type,
+          lane2: note.lane2, y, holdHeight, hit: false, holding: false,
+          holdComplete: false, hit2: false, chartTime: note.time,
         });
-
         chartIndexRef.current++;
-      } else {
-        break; // future notes not yet visible
-      }
+      } else { break; }
     }
     return newTiles;
   }, [currentSpeed, chartTimeToY]);
@@ -123,109 +109,80 @@ const Play = () => {
     const delta = lastTimeRef.current ? time - lastTimeRef.current : 16;
     lastTimeRef.current = time;
     gameTimeRef.current += delta * speedMultiplier;
-
     const gameTime = gameTimeRef.current;
+
+    // Shift background color every ~8 seconds
+    if (gameTime - lastBgShiftRef.current > 8000) {
+      lastBgShiftRef.current = gameTime;
+      setBgThemeIndex((i) => i + 1);
+    }
 
     setTiles((prev) => {
       let updated = prev.map((t) => {
         if (t.hit && t.type !== "hold") return t;
         const newY = chartTimeToY(t.chartTime, gameTime);
-
-        // Hold tile logic
         if (t.type === "hold" && t.holding) {
-          // Check if player is still holding
           if (!holdingLanesRef.current.has(t.lane)) {
             return { ...t, y: newY, holding: false, holdComplete: true, hit: true };
           }
         }
-
         return { ...t, y: newY };
       });
 
-      // Check for missed tiles (passed the hit zone without being tapped)
-      const missed = updated.find(
-        (t) => !t.hit && !t.holding && t.y > HIT_ZONE_BOTTOM + 5
-      );
-
+      const missed = updated.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_BOTTOM + 5);
       if (missed) {
-        // INSTANT FAIL
-        console.log("[GAME] MISS FAIL gameTime:", gameTime);
         setGamePhase("failed");
         return updated;
       }
 
-      // Spawn upcoming tiles
       const spawned = spawnUpcomingTiles(gameTime, chart.notes);
-      if (spawned.length > 0) {
-        updated = [...updated, ...spawned];
-      }
-
-      // Remove tiles that are way off screen
+      if (spawned.length > 0) updated = [...updated, ...spawned];
       updated = updated.filter((t) => t.y < 130 && t.y > -30);
 
-      // Check if all notes have been played
       if (
         chartIndexRef.current >= chart.notes.length &&
         updated.filter((t) => !t.hit && t.type !== "hold").length === 0 &&
         updated.filter((t) => t.type === "hold" && !t.holdComplete && !t.hit).length === 0
       ) {
-        // Round complete
-        if (round < ROUND_SPEEDS.length - 1) {
-          setGamePhase("round-complete");
-        } else {
-          setGamePhase("song-complete");
-        }
+        if (round < ROUND_SPEEDS.length - 1) setGamePhase("round-complete");
+        else setGamePhase("song-complete");
         return updated;
       }
-
       return updated;
     });
 
-    // Clean old hit effects
     setHitEffects((prev) => prev.filter((e) => Date.now() - e.timestamp < 500));
-
     animRef.current = requestAnimationFrame(gameLoop);
   }, [chart, speedMultiplier, chartTimeToY, spawnUpcomingTiles, round]);
 
-  // Start/stop game loop
   useEffect(() => {
     if (gamePhase === "playing") {
       lastTimeRef.current = 0;
       animRef.current = requestAnimationFrame(gameLoop);
     }
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhase !== "playing") return;
-    // Grace period: don't process taps during the pre-start delay
     if (gameTimeRef.current < 500) return;
     holdingLanesRef.current.add(lane);
 
     setTiles((prev) => {
-      // Find the lowest (closest to hit zone) unhit tile in this lane
       const hittable = prev
         .filter((t) => {
           if (t.hit || t.holding) return false;
-          // Check primary lane
           const inLane = t.lane === lane || (t.type === "double" && t.lane2 === lane);
           if (!inLane) return false;
-          // Must be in or near hit zone
           return t.y >= HIT_ZONE_TOP - 15 && t.y <= HIT_ZONE_BOTTOM;
         })
-        .sort((a, b) => b.y - a.y); // closest to bottom first
+        .sort((a, b) => b.y - a.y);
 
       if (hittable.length === 0) {
-        // Tapped wrong area — only fail if tiles are near the hit zone
         const tilesNearHitZone = prev.filter(
           (t) => !t.hit && t.y > HIT_ZONE_TOP - 30 && t.y < HIT_ZONE_BOTTOM + 10
         );
-        console.log("[GAME] Wrong tap lane:", lane, "nearHitZone:", tilesNearHitZone.length);
-        if (tilesNearHitZone.length > 0) {
-          setGamePhase("failed");
-        }
+        if (tilesNearHitZone.length > 0) setGamePhase("failed");
         return prev;
       }
 
@@ -236,33 +193,18 @@ const Play = () => {
 
       setScore((s) => s + scoreGain);
       setTotalHits((h) => h + 1);
-      setCombo((c) => {
-        const next = c + 1;
-        setMaxCombo((m) => Math.max(m, next));
-        return next;
-      });
-
-      setHitEffects((prev) => [
-        ...prev,
-        { id: target.id, lane, y: target.y, label, timestamp: Date.now() },
-      ]);
+      setCombo((c) => { const next = c + 1; setMaxCombo((m) => Math.max(m, next)); return next; });
+      setHitEffects((prev) => [...prev, { id: target.id, lane, y: target.y, label, timestamp: Date.now() }]);
 
       return prev.map((t) => {
         if (t.id !== target.id) return t;
-
-        if (t.type === "hold") {
-          return { ...t, holding: true };
-        }
-
+        if (t.type === "hold") return { ...t, holding: true };
         if (t.type === "double") {
           const hitPrimary = t.lane === lane ? true : t.hit;
           const hitSecond = t.lane2 === lane ? true : t.hit2;
-          if (hitPrimary && hitSecond) {
-            return { ...t, hit: true, hit2: true };
-          }
+          if (hitPrimary && hitSecond) return { ...t, hit: true, hit2: true };
           return { ...t, hit: hitPrimary, hit2: hitSecond };
         }
-
         return { ...t, hit: true };
       });
     });
@@ -270,7 +212,6 @@ const Play = () => {
 
   const handleLaneRelease = useCallback((lane: number) => {
     holdingLanesRef.current.delete(lane);
-
     setTiles((prev) =>
       prev.map((t) => {
         if (t.type === "hold" && t.holding && t.lane === lane) {
@@ -284,27 +225,19 @@ const Play = () => {
   }, [combo]);
 
   const startGame = useCallback(() => {
-    setTiles([]);
-    setScore(0);
-    setCombo(0);
-    setMaxCombo(0);
-    setTotalHits(0);
-    setHitEffects([]);
-    setRound(0);
-    tileIdRef.current = 0;
-    chartIndexRef.current = 0;
-    gameTimeRef.current = -3000; // pre-start delay: tiles fall for 3s before reaching hit zone
+    setTiles([]); setScore(0); setCombo(0); setMaxCombo(0); setTotalHits(0);
+    setHitEffects([]); setRound(0); setBgThemeIndex(0);
+    tileIdRef.current = 0; chartIndexRef.current = 0;
+    gameTimeRef.current = -3000; lastBgShiftRef.current = 0;
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
 
   const startNextRound = useCallback(() => {
-    setTiles([]);
-    setHitEffects([]);
+    setTiles([]); setHitEffects([]);
     setRound((r) => r + 1);
-    tileIdRef.current = 0;
-    chartIndexRef.current = 0;
-    gameTimeRef.current = -3000;
+    tileIdRef.current = 0; chartIndexRef.current = 0;
+    gameTimeRef.current = -3000; lastBgShiftRef.current = 0;
     holdingLanesRef.current.clear();
     setGamePhase("playing");
   }, []);
@@ -318,15 +251,24 @@ const Play = () => {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-gradient-to-br from-sky-300 via-blue-400 to-purple-500 relative overflow-hidden select-none touch-none">
-      {/* Diamond pattern overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+    <div className={`flex min-h-[100dvh] flex-col bg-gradient-to-br ${bgTheme.from} ${bgTheme.via} ${bgTheme.to} relative overflow-hidden select-none touch-none transition-colors duration-[2000ms]`}>
+      {/* Crystal/geometric pattern overlay — like MT3 */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.07]"
         style={{
-          backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.3) 40px, rgba(255,255,255,0.3) 42px),
-            repeating-linear-gradient(-45deg, transparent, transparent 40px, rgba(255,255,255,0.3) 40px, rgba(255,255,255,0.3) 42px)`,
+          backgroundImage: `
+            linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%),
+            linear-gradient(225deg, rgba(255,255,255,0.3) 0%, transparent 50%),
+            repeating-linear-gradient(45deg, transparent, transparent 60px, rgba(255,255,255,0.15) 60px, rgba(255,255,255,0.15) 61px),
+            repeating-linear-gradient(-45deg, transparent, transparent 60px, rgba(255,255,255,0.15) 60px, rgba(255,255,255,0.15) 61px)
+          `,
         }}
       />
+
+      {/* Light flare effects */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute w-[200%] h-[30%] top-[20%] left-[-50%] bg-white/[0.04] rotate-[-15deg] blur-sm" />
+        <div className="absolute w-[200%] h-[15%] top-[50%] left-[-50%] bg-white/[0.03] rotate-[10deg] blur-sm" />
+      </div>
 
       {/* HUD */}
       {gamePhase === "playing" && (
@@ -334,6 +276,8 @@ const Play = () => {
           score={score}
           combo={combo}
           round={round}
+          totalNotes={chart.notes.length}
+          currentHits={totalHits}
           onBack={() => navigate(-1)}
           onPause={() => setGamePhase("paused")}
         />
@@ -341,15 +285,8 @@ const Play = () => {
 
       {/* Game area */}
       <div className="relative flex-1 mx-auto w-full max-w-md overflow-hidden">
-        {/* Bottom glow */}
-        <div className="absolute bottom-0 left-0 right-0 h-[18%] bg-gradient-to-t from-purple-600/40 to-transparent pointer-events-none z-[1]" />
-
-        <GameLanes
-          tiles={tiles}
-          onLaneTap={handleLaneTap}
-          onLaneRelease={handleLaneRelease}
-        />
-        <HitEffects effects={hitEffects} />
+        <GameLanes tiles={tiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} />
+        <HitEffects effects={hitEffects} combo={combo} />
 
         {/* Overlays */}
         {(gamePhase === "loading" || gamePhase === "ready") && (
@@ -359,28 +296,13 @@ const Play = () => {
           <PauseOverlay onResume={() => setGamePhase("playing")} onQuit={() => navigate("/library")} />
         )}
         {gamePhase === "failed" && (
-          <FailOverlay
-            song={song}
-            score={score}
-            maxCombo={maxCombo}
-            round={round}
-            onRetry={startGame}
-            onQuit={() => navigate("/library")}
-          />
+          <FailOverlay song={song} score={score} maxCombo={maxCombo} round={round} onRetry={startGame} onQuit={() => navigate("/library")} />
         )}
         {gamePhase === "round-complete" && (
           <RoundCompleteOverlay round={round} score={score} onNextRound={startNextRound} />
         )}
         {gamePhase === "song-complete" && (
-          <SongCompleteOverlay
-            song={song}
-            score={score}
-            maxCombo={maxCombo}
-            totalHits={totalHits}
-            totalNotes={chart.notes.length}
-            onRetry={startGame}
-            onQuit={() => navigate("/library")}
-          />
+          <SongCompleteOverlay song={song} score={score} maxCombo={maxCombo} totalHits={totalHits} totalNotes={chart.notes.length} onRetry={startGame} onQuit={() => navigate("/library")} />
         )}
       </div>
     </div>
