@@ -14,10 +14,18 @@ import {
   RoundCompleteOverlay, SongCompleteOverlay,
 } from "@/components/game/GameOverlays";
 
-const BASE_FALL_SPEED = 3.5;
 const HIT_ZONE_TOP = 70;
 const HIT_ZONE_BOTTOM = 95;
 const HOLD_HEIGHT_BASE = 18;
+
+/**
+ * BPM-aware fall speed: faster BPM songs have tiles closer together
+ * and falling faster, matching the actual tempo feel.
+ */
+function getBaseFallSpeed(bpm: number): number {
+  // Scale: 78 BPM → ~2.8, 120 BPM → ~4.3, 130 BPM → ~4.7
+  return 1.8 + (bpm / 55);
+}
 
 // Background color themes that shift during gameplay — like MT3
 const BG_THEMES = [
@@ -55,8 +63,9 @@ const Play = () => {
 
   useEffect(() => { tilesRef.current = tiles; }, [tiles]);
 
+  const baseFallSpeed = chart ? getBaseFallSpeed(chart.bpm) : 3.5;
   const speedMultiplier = ROUND_SPEEDS[Math.min(round, ROUND_SPEEDS.length - 1)];
-  const currentSpeed = BASE_FALL_SPEED * speedMultiplier;
+  const currentSpeed = baseFallSpeed * speedMultiplier;
   const bgTheme = BG_THEMES[bgThemeIndex % BG_THEMES.length];
 
   // Loading animation
