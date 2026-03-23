@@ -63,8 +63,9 @@ const Play = () => {
 
   useEffect(() => { tilesRef.current = tiles; }, [tiles]);
 
+  const baseFallSpeed = chart ? getBaseFallSpeed(chart.bpm) : 3.5;
   const speedMultiplier = ROUND_SPEEDS[Math.min(round, ROUND_SPEEDS.length - 1)];
-  const currentSpeed = BASE_FALL_SPEED * speedMultiplier;
+  const currentSpeed = baseFallSpeed * speedMultiplier;
   const bgTheme = BG_THEMES[bgThemeIndex % BG_THEMES.length];
 
   // Loading animation
