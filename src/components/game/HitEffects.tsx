@@ -1,48 +1,64 @@
-import { HitEffect } from "@/lib/gameEngine";
-import { LANES } from "@/lib/gameEngine";
+import { memo } from "react";
+import { HitEffect, LANES } from "@/lib/gameEngine";
 
 interface HitEffectsProps {
   effects: HitEffect[];
   combo: number;
 }
 
-const HitEffects = ({ effects, combo }: HitEffectsProps) => {
+const HitEffects = memo(({ effects, combo }: HitEffectsProps) => {
   return (
     <>
-      {effects.map((effect) => (
-        <div
-          key={`fx-${effect.id}-${effect.timestamp}`}
-          className="absolute flex flex-col items-center justify-center pointer-events-none z-20 animate-hit-feedback"
-          style={{
-            left: `${(effect.lane / LANES) * 100}%`,
-            width: `${100 / LANES}%`,
-            top: `${effect.y - 8}%`,
-          }}
-        >
-          {/* Hit label — gradient pink/white like MT3 */}
-          <span
-            className={`text-xl font-black tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] ${
-              effect.label === "PERFECT"
-                ? "text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-white to-pink-300"
-                : effect.label === "GREAT"
-                ? "text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-cyan-300"
-                : effect.label === "COOL"
-                ? "text-cyan-300"
-                : "text-white/70"
-            }`}
+      {effects.map((effect) => {
+        const age = Date.now() - effect.timestamp;
+        if (age > 500) return null;
+
+        return (
+          <div
+            key={`fx-${effect.id}-${effect.timestamp}`}
+            className="absolute flex flex-col items-center justify-center pointer-events-none z-20"
+            style={{
+              left: `${(effect.lane / LANES) * 100}%`,
+              width: `${100 / LANES}%`,
+              top: `${effect.y - 8}%`,
+              animation: "hit-feedback 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+            }}
           >
-            {effect.label}
-          </span>
-          {/* Combo multiplier */}
-          {combo > 1 && (
-            <span className="text-xs font-bold text-white/60 mt-0.5">
-              ×{combo}
+            {/* Ripple burst */}
+            <div
+              className="absolute w-16 h-16 rounded-full"
+              style={{
+                animation: "ripple-burst 0.4s ease-out forwards",
+                border: effect.label === "PERFECT"
+                  ? "2px solid rgba(236,72,153,0.6)"
+                  : "2px solid rgba(34,211,238,0.4)",
+              }}
+            />
+            {/* Hit label */}
+            <span
+              className="text-xl font-black tracking-tight relative z-10"
+              style={{
+                textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                color: effect.label === "PERFECT" ? "#f472b6"
+                     : effect.label === "GREAT" ? "#22d3ee"
+                     : effect.label === "COOL" ? "#a5f3fc"
+                     : "rgba(255,255,255,0.7)",
+              }}
+            >
+              {effect.label}
             </span>
-          )}
-        </div>
-      ))}
+            {combo > 2 && (
+              <span className="text-xs font-bold text-white/60 mt-0.5">
+                ×{combo}
+              </span>
+            )}
+          </div>
+        );
+      })}
     </>
   );
-};
+});
+
+HitEffects.displayName = "HitEffects";
 
 export default HitEffects;
