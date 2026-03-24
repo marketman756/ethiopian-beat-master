@@ -20,19 +20,19 @@ const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => 
 
   return (
     <>
-      {/* Lane dividers */}
+      {/* Lane dividers — thin subtle lines */}
       <div className="absolute inset-0 flex pointer-events-none">
         {Array.from({ length: LANES }).map((_, i) => (
-          <div key={i} className="flex-1 border-r border-white/[0.12] last:border-r-0" />
+          <div key={i} className="flex-1 border-r border-white/[0.08] last:border-r-0" />
         ))}
       </div>
 
-      {/* Hit zone — glowing line at 80% */}
+      {/* Hit zone — glowing line */}
       <div
         className="absolute left-0 right-0 pointer-events-none z-[1]"
-        style={{ top: "80%" }}
+        style={{ top: "82%" }}
       >
-        <div className="h-[2px] bg-white/20 shadow-[0_0_12px_2px_rgba(255,255,255,0.15)]" />
+        <div className="h-[2px] bg-white/25 shadow-[0_0_16px_3px_rgba(255,255,255,0.2)]" />
       </div>
 
       {/* Tiles */}
@@ -48,7 +48,7 @@ const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => 
         return <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane />;
       })}
 
-      {/* Touch zones — full-width invisible buttons using pointerdown for zero latency */}
+      {/* Touch zones */}
       <div className="absolute bottom-0 left-0 right-0 flex h-[50%] z-10">
         {Array.from({ length: LANES }).map((_, i) => (
           <div
@@ -74,11 +74,11 @@ interface TileElementProps {
 
 const TileElement = memo(({ tile }: TileElementProps) => {
   const laneWidth = 100 / LANES;
-  const gap = 0.5;
+  const gap = 0.4;
   const left = tile.lane * laneWidth + gap / 2;
   const width = laneWidth - gap;
 
-  // HOLD TILE
+  // HOLD TILE — cyan gradient with rounded bottom
   if (tile.type === "hold") {
     const isActive = tile.holding;
     return (
@@ -92,7 +92,6 @@ const TileElement = memo(({ tile }: TileElementProps) => {
           transform: "translateZ(0)",
         }}
       >
-        {/* Body */}
         <div
           className="absolute inset-0 rounded-b-2xl overflow-hidden"
           style={{
@@ -104,20 +103,12 @@ const TileElement = memo(({ tile }: TileElementProps) => {
               : "0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
           }}
         >
-          {/* Inner shine streak */}
           <div className="absolute left-[20%] right-[50%] top-0 bottom-0 bg-gradient-to-r from-white/25 to-transparent" />
-          {/* Pulse animation when holding */}
-          {isActive && (
-            <div className="absolute inset-0 bg-white/10 animate-pulse" />
-          )}
+          {isActive && <div className="absolute inset-0 bg-white/10 animate-pulse" />}
         </div>
-        {/* Score label */}
         <div className="absolute inset-x-0 bottom-[38%] flex items-center justify-center">
-          <span className="text-white font-black text-base drop-shadow-lg" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
-            +2
-          </span>
+          <span className="text-white font-black text-base drop-shadow-lg" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>+2</span>
         </div>
-        {/* Release circle at bottom */}
         <div className="absolute inset-x-0 bottom-[8%] flex items-center justify-center">
           <div
             className="w-6 h-6 rounded-full border-[2.5px]"
@@ -132,8 +123,9 @@ const TileElement = memo(({ tile }: TileElementProps) => {
     );
   }
 
-  // TAP TILE — tall black piano key with subtle 3D depth
-  const tileHeight = 16;
+  // TAP TILE — solid black rectangle, fills the lane completely
+  // Height is calculated to touch the next tile (continuous look)
+  const tileHeight = 18;
 
   return (
     <div
@@ -147,18 +139,17 @@ const TileElement = memo(({ tile }: TileElementProps) => {
       }}
     >
       <div
-        className="absolute inset-0 rounded-[3px] overflow-hidden"
+        className="absolute inset-0 overflow-hidden"
         style={{
-          background: "linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 60%, #000000 100%)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), inset -1px 0 0 rgba(255,255,255,0.04)",
+          background: "linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 50%, #000000 100%)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)",
+          borderRadius: "2px",
         }}
       >
         {/* Top edge highlight */}
-        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-b from-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-b from-white/[0.08] to-transparent" />
         {/* Left edge reflection */}
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-r from-white/[0.06] to-transparent" />
-        {/* Center shine */}
-        <div className="absolute left-[15%] right-[60%] top-[5%] bottom-[20%] bg-gradient-to-br from-white/[0.04] to-transparent rounded-sm" />
+        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-gradient-to-r from-white/[0.04] to-transparent" />
       </div>
     </div>
   );
