@@ -23,6 +23,7 @@ export const songs: Song[] = [
   { id: "10", title: "Janoy", artist: "Gigi", genre: "World", difficulty: "hard", duration: "5:30", bpm: 105, cover: "", popular: false },
   { id: "11", title: "Addis Abeba Bete", artist: "Mahmoud Ahmed", genre: "Ethio-Jazz", difficulty: "medium", duration: "4:40", bpm: 100, cover: "", popular: false },
   { id: "12", title: "Haile", artist: "Teddy Afro", genre: "Pop", difficulty: "easy", duration: "3:30", bpm: 118, cover: "", popular: false },
+  { id: "13", title: "Gud Yaregegn", artist: "Teddy Afro", genre: "Pop", difficulty: "medium", duration: "5:00", bpm: 105, cover: "", popular: true },
 ];
 
 export const genres = ["All", "Ethio-Jazz", "Traditional", "Pop", "Classic", "World"];
