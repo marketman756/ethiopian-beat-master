@@ -400,7 +400,7 @@ const Play = () => {
 
       {/* Game area */}
       <div className="relative flex-1 mx-auto w-full max-w-md overflow-hidden">
-        <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} />
+        <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} bpm={chart.bpm} fallDurationMs={fallDurationMs} />
         <HitEffects effects={hitEffects} combo={combo} />
 
         {(gamePhase === "loading" || gamePhase === "ready") && (

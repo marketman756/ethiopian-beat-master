@@ -5,9 +5,13 @@ interface GameLanesProps {
   tiles: GameTile[];
   onLaneTap: (lane: number) => void;
   onLaneRelease: (lane: number) => void;
+  bpm: number;
+  fallDurationMs: number;
 }
 
-const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => {
+const HIT_ZONE_Y = 82;
+
+const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }: GameLanesProps) => {
   const handlePointerDown = useCallback((lane: number) => (e: React.PointerEvent) => {
     e.preventDefault();
     onLaneTap(lane);
