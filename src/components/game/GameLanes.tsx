@@ -132,9 +132,7 @@ const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
     );
   }
 
-  // TAP TILE — solid black rectangle, fills the lane completely
-  // Height is calculated to touch the next tile (continuous look)
-  const tileHeight = 18;
+  // TAP TILE — solid black rectangle, height from props for continuous look
 
   return (
     <div
