@@ -5,9 +5,17 @@ interface GameLanesProps {
   tiles: GameTile[];
   onLaneTap: (lane: number) => void;
   onLaneRelease: (lane: number) => void;
+  bpm: number;
+  fallDurationMs: number;
 }
 
-const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => {
+const HIT_ZONE_Y = 82;
+
+const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }: GameLanesProps) => {
+  // Dynamic tile height: beat interval in Y-space so tiles touch edge-to-edge
+  const beatMs = 60000 / bpm;
+  const tileHeight = (beatMs / fallDurationMs) * HIT_ZONE_Y;
+
   const handlePointerDown = useCallback((lane: number) => (e: React.PointerEvent) => {
     e.preventDefault();
     onLaneTap(lane);
@@ -39,13 +47,13 @@ const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease }: GameLanesProps) => 
       {tiles.map((tile) => {
         if (tile.hit && tile.type !== "hold") return null;
         if (tile.type === "hold" && tile.holdComplete) return null;
-        return <TileElement key={tile.id} tile={tile} />;
+        return <TileElement key={tile.id} tile={tile} tileHeight={tileHeight} />;
       })}
 
       {/* Double tile second lane */}
       {tiles.map((tile) => {
         if (tile.type !== "double" || tile.hit2 || tile.lane2 === undefined) return null;
-        return <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane />;
+        return <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane tileHeight={tileHeight} />;
       })}
 
       {/* Touch zones */}
@@ -70,9 +78,10 @@ GameLanes.displayName = "GameLanes";
 interface TileElementProps {
   tile: GameTile;
   isSecondLane?: boolean;
+  tileHeight: number;
 }
 
-const TileElement = memo(({ tile }: TileElementProps) => {
+const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
   const laneWidth = 100 / LANES;
   const gap = 0.4;
   const left = tile.lane * laneWidth + gap / 2;
@@ -123,9 +132,7 @@ const TileElement = memo(({ tile }: TileElementProps) => {
     );
   }
 
-  // TAP TILE — solid black rectangle, fills the lane completely
-  // Height is calculated to touch the next tile (continuous look)
-  const tileHeight = 18;
+  // TAP TILE — solid black rectangle, height from props for continuous look
 
   return (
     <div
