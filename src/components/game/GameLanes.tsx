@@ -12,6 +12,10 @@ interface GameLanesProps {
 const HIT_ZONE_Y = 82;
 
 const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }: GameLanesProps) => {
+  // Dynamic tile height: beat interval in Y-space so tiles touch edge-to-edge
+  const beatMs = 60000 / bpm;
+  const tileHeight = (beatMs / fallDurationMs) * HIT_ZONE_Y;
+
   const handlePointerDown = useCallback((lane: number) => (e: React.PointerEvent) => {
     e.preventDefault();
     onLaneTap(lane);
@@ -74,9 +78,10 @@ GameLanes.displayName = "GameLanes";
 interface TileElementProps {
   tile: GameTile;
   isSecondLane?: boolean;
+  tileHeight: number;
 }
 
-const TileElement = memo(({ tile }: TileElementProps) => {
+const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
   const laneWidth = 100 / LANES;
   const gap = 0.4;
   const left = tile.lane * laneWidth + gap / 2;
