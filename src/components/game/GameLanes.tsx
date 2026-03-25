@@ -43,13 +43,13 @@ const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }
       {tiles.map((tile) => {
         if (tile.hit && tile.type !== "hold") return null;
         if (tile.type === "hold" && tile.holdComplete) return null;
-        return <TileElement key={tile.id} tile={tile} />;
+        return <TileElement key={tile.id} tile={tile} tileHeight={tileHeight} />;
       })}
 
       {/* Double tile second lane */}
       {tiles.map((tile) => {
         if (tile.type !== "double" || tile.hit2 || tile.lane2 === undefined) return null;
-        return <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane />;
+        return <TileElement key={`d-${tile.id}`} tile={{ ...tile, lane: tile.lane2! }} isSecondLane tileHeight={tileHeight} />;
       })}
 
       {/* Touch zones */}
