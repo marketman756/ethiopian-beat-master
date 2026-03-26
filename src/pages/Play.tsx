@@ -232,27 +232,34 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // Hit detection
+  // Hit detection — uses BOTH timing AND visual position for maximum responsiveness
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
-    if (songTimeMs < 200) return;
 
     holdingLanesRef.current.add(lane);
 
     const tiles = tilesRef.current;
+    // Wider hit window (300ms) for forgiving tap detection
     const hittable = tiles
       .filter((t) => {
         if (t.hit || t.holding) return false;
         const inLane = t.lane === lane || (t.type === "double" && t.lane2 === lane);
         if (!inLane) return false;
-        return Math.abs(t.chartTime - songTimeMs) <= 200;
+        // Accept if within timing window OR if tile is visually near hit zone
+        const timeDelta = Math.abs(t.chartTime - songTimeMs);
+        const visuallyNear = t.y >= 50 && t.y <= 100; // in the lower half of screen
+        return timeDelta <= 300 || visuallyNear;
       })
       .sort((a, b) => Math.abs(a.chartTime - songTimeMs) - Math.abs(b.chartTime - songTimeMs));
 
     if (hittable.length === 0) {
-      const nearTiles = tiles.filter((t) => !t.hit && Math.abs(t.chartTime - songTimeMs) < 400);
-      if (nearTiles.length > 0) {
+      // Only fail if there's an IMMINENT tile on a DIFFERENT lane (player tapped wrong lane)
+      const imminentOnOtherLane = tiles.find((t) =>
+        !t.hit && !t.holding && t.lane !== lane &&
+        t.y >= 70 && t.y <= 90
+      );
+      if (imminentOnOtherLane) {
         playMissSound();
         triggerVibration(100);
         audio.stopPlayback();
