@@ -11,7 +11,6 @@ interface GameHUDProps {
   onPause: () => void;
 }
 
-// 3 stars + 3 crowns = 6 milestones across the progress bar
 const MILESTONES = [
   { position: 0.12, type: "star" as const },
   { position: 0.28, type: "star" as const },
@@ -24,31 +23,31 @@ const MILESTONES = [
 const MILESTONE_THRESHOLDS = [50, 150, 300, 500, 800, 1200];
 
 const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause }: GameHUDProps) => {
-  // Progress based on score relative to max possible
   const progress = Math.min(score / 1500, 1);
 
   return (
     <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
-      {/* Progress bar with milestones — Magic Tiles 3 style */}
+      {/* Progress bar with milestones */}
       <div className="relative mx-auto max-w-md px-2 pt-2">
-        {/* The progress line */}
         <div className="relative h-8 flex items-center">
           {/* Background line */}
           <div className="absolute left-2 right-2 h-[2px] bg-white/20 top-1/2 -translate-y-1/2" />
-          {/* Filled line */}
+          {/* Filled line — Ethiopian gold gradient */}
           <div
-            className="absolute left-2 h-[2px] bg-yellow-400 top-1/2 -translate-y-1/2 transition-all duration-300"
-            style={{ width: `${progress * (100 - 4)}%` }}
+            className="absolute left-2 h-[2px] top-1/2 -translate-y-1/2 transition-all duration-300"
+            style={{
+              width: `${progress * (100 - 4)}%`,
+              background: "linear-gradient(90deg, hsl(48,96%,53%), hsl(43,96%,56%), hsl(48,96%,53%))",
+              boxShadow: "0 0 8px rgba(234,179,8,0.4)",
+            }}
           />
-
-          {/* Current position indicator — small triangle */}
+          {/* Position indicator */}
           <div
             className="absolute top-1/2 -translate-y-1/2 transition-all duration-300"
             style={{ left: `${2 + progress * (100 - 4)}%` }}
           >
             <div className="w-2 h-2 bg-white rotate-45 -translate-x-1/2 shadow-sm" />
           </div>
-
           {/* Milestone icons */}
           {MILESTONES.map((m, i) => {
             const achieved = score >= MILESTONE_THRESHOLDS[i];
@@ -62,11 +61,11 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause
                 <Icon
                   className={`h-4 w-4 transition-all duration-500 ${
                     achieved
-                      ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_6px_rgba(250,204,21,0.8)] scale-125"
+                      ? "drop-shadow-[0_0_6px_rgba(234,179,8,0.8)] scale-125"
                       : "text-white/30"
                   }`}
+                  style={achieved ? { color: "hsl(48,96%,53%)", fill: "hsl(48,96%,53%)" } : undefined}
                 />
-                {/* Small dot on the line */}
                 {!achieved && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/40" />
                 )}
@@ -76,14 +75,17 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause
         </div>
       </div>
 
-      {/* Score + combo — centered below progress bar */}
+      {/* Score */}
       <div className="flex flex-col items-center mx-auto max-w-md -mt-1">
-        <span className="text-[42px] font-black text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.3)] tabular-nums leading-none">
+        <span
+          className="text-[42px] font-black text-white tabular-nums leading-none font-display"
+          style={{ textShadow: "0 2px 16px rgba(234,179,8,0.2), 0 2px 8px rgba(0,0,0,0.3)" }}
+        >
           {score}
         </span>
       </div>
 
-      {/* Pause button — top right, small */}
+      {/* Pause button */}
       <button
         className="absolute top-2 right-3 pointer-events-auto p-1.5 rounded-full bg-black/20 active:scale-95 transition-transform"
         onClick={onPause}
