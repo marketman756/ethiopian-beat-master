@@ -10,30 +10,53 @@ interface ReadyOverlayProps {
 }
 
 export const ReadyOverlay = ({ song, loadingProgress, onStart }: ReadyOverlayProps) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-gradient-to-br from-sky-400 via-blue-500 to-purple-600 z-30">
-    {/* Decorative blurs */}
+  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-30"
+    style={{
+      background: "linear-gradient(180deg, #0a0a14 0%, #1a0a2e 40%, #0d1b2a 100%)",
+    }}
+  >
+    {/* Tibeb pattern overlay */}
+    <div className="absolute inset-0 tibeb-pattern opacity-40 pointer-events-none" />
+
+    {/* Ethiopian accent glow */}
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute w-48 h-48 rounded-full bg-cyan-300/20 blur-[80px] top-[15%] left-[5%]" />
-      <div className="absolute w-56 h-56 rounded-full bg-pink-400/15 blur-[80px] bottom-[10%] right-[0%]" />
-      <div className="absolute w-32 h-32 rounded-full bg-white/10 blur-[60px] top-[45%] left-[40%]" />
+      <div className="absolute w-48 h-48 rounded-full blur-[80px] top-[15%] left-[5%]"
+        style={{ background: "radial-gradient(circle, rgba(34,197,94,0.15), transparent)" }} />
+      <div className="absolute w-56 h-56 rounded-full blur-[80px] bottom-[10%] right-[0%]"
+        style={{ background: "radial-gradient(circle, rgba(239,68,68,0.12), transparent)" }} />
+      <div className="absolute w-32 h-32 rounded-full blur-[60px] top-[45%] left-[40%]"
+        style={{ background: "radial-gradient(circle, rgba(234,179,8,0.1), transparent)" }} />
     </div>
 
     <div className="relative z-10 flex flex-col items-center gap-5">
+      {/* Brand */}
+      <span className="text-xs font-display font-bold tracking-[0.3em] uppercase"
+        style={{ color: "hsl(48,96%,53%)" }}>
+        Ethio-Tiles
+      </span>
+
       {/* Song title */}
       <h2 className="text-3xl font-black text-white drop-shadow-lg tracking-tight text-center px-6 leading-tight">
         {song.title}
       </h2>
-      <p className="text-white/60 text-sm font-medium">{song.artist}</p>
+      <p className="text-white/50 text-sm font-medium">{song.artist}</p>
 
-      {/* Circular progress */}
+      {/* Circular progress with Ethiopian tri-color ring */}
       <div className="relative flex items-center justify-center mt-4">
         <svg className="h-32 w-32 -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" />
+          {/* Background ring */}
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2.5" />
+          {/* Ethiopian tri-color progress segments */}
           <circle
-            cx="50" cy="50" r="42" fill="none" stroke="white" strokeWidth="2.5"
+            cx="50" cy="50" r="42" fill="none" strokeWidth="2.5"
             strokeLinecap="round"
             strokeDasharray={`${Math.min(loadingProgress, 100) * 2.64} 264`}
             className="transition-all duration-300"
+            style={{
+              stroke: loadingProgress < 33 ? "#22c55e"
+                : loadingProgress < 66 ? "#eab308"
+                : "#ef4444",
+            }}
           />
         </svg>
         <div className="absolute flex flex-col items-center">
@@ -46,15 +69,14 @@ export const ReadyOverlay = ({ song, loadingProgress, onStart }: ReadyOverlayPro
             </button>
           ) : (
             <>
-              <span className="text-white/60 text-xs font-medium">Loading...</span>
-              <span className="text-white text-2xl font-black">{Math.min(Math.round(loadingProgress), 100)}%</span>
+              <span className="text-white/50 text-xs font-medium">Loading...</span>
+              <span className="text-white text-2xl font-black font-display">{Math.min(Math.round(loadingProgress), 100)}%</span>
             </>
           )}
         </div>
       </div>
 
-      {/* Headphones */}
-      <div className="flex items-center gap-2 text-white/50 mt-6">
+      <div className="flex items-center gap-2 text-white/40 mt-6">
         <Headphones className="h-5 w-5" />
         <span className="text-sm font-medium">Headphone Recommended</span>
       </div>
@@ -68,7 +90,10 @@ interface PauseOverlayProps {
 }
 
 export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/70 backdrop-blur-sm z-30">
+  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/80 backdrop-blur-sm z-30">
+    <span className="text-xs font-display font-bold tracking-[0.3em] uppercase" style={{ color: "hsl(48,96%,53%)" }}>
+      Ethio-Tiles
+    </span>
     <h2 className="text-2xl font-bold text-white">Paused</h2>
     <div className="flex gap-3">
       <Button onClick={onResume} className="gap-2 bg-white text-gray-900 hover:bg-white/90 rounded-full px-6 font-bold active:scale-95 transition-transform">
@@ -92,20 +117,24 @@ interface FailOverlayProps {
 }
 
 export const FailOverlay = ({ song, score, maxCombo, round, onRetry, onQuit }: FailOverlayProps) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-red-500/90 via-red-700/95 to-gray-950/95 backdrop-blur-sm z-30">
-    <div className="flex flex-col items-center gap-4">
+  <div className="absolute inset-0 flex flex-col items-center justify-center z-30"
+    style={{ background: "linear-gradient(180deg, rgba(220,38,38,0.85) 0%, rgba(127,29,29,0.95) 50%, rgba(10,10,20,0.98) 100%)" }}
+  >
+    <div className="absolute inset-0 tibeb-pattern opacity-20 pointer-events-none" />
+    <div className="relative z-10 flex flex-col items-center gap-4">
       <span className="text-7xl font-black text-white/15">✕</span>
       <h2 className="text-lg font-semibold text-white/80">{song.title}</h2>
       {round > 0 && (
         <span className="text-xs text-white/50">Round {round + 1} — {ROUND_SPEEDS[round]}x</span>
       )}
-      <p className="text-5xl font-black text-white tabular-nums mt-2 drop-shadow-lg">{score}</p>
+      <p className="text-5xl font-black text-white tabular-nums mt-2 drop-shadow-lg font-display">{score}</p>
       <p className="text-white/60 text-sm">Best Combo: {maxCombo}x</p>
       <div className="flex gap-3 mt-6">
         <Button
           onClick={onRetry}
           size="lg"
-          className="gap-2 bg-white text-gray-900 hover:bg-white/90 font-bold rounded-full px-8 shadow-lg active:scale-95 transition-transform"
+          className="gap-2 font-bold rounded-full px-8 shadow-lg active:scale-95 transition-transform"
+          style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "white" }}
         >
           <RotateCcw className="h-4 w-4" />
           Retry
@@ -130,22 +159,28 @@ interface RoundCompleteOverlayProps {
 }
 
 export const RoundCompleteOverlay = ({ round, score, onNextRound }: RoundCompleteOverlayProps) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-30">
-    <div className="flex flex-col items-center gap-4">
+  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm z-30">
+    <div className="absolute inset-0 tibeb-pattern opacity-20 pointer-events-none" />
+    <div className="relative z-10 flex flex-col items-center gap-4">
       <div className="flex gap-2">
         {Array.from({ length: round + 1 }).map((_, i) => (
-          <Star key={i} className="h-10 w-10 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.7)]" />
+          <Star
+            key={i}
+            className="h-10 w-10 drop-shadow-[0_0_12px_rgba(234,179,8,0.7)]"
+            style={{ color: "hsl(48,96%,53%)", fill: "hsl(48,96%,53%)" }}
+          />
         ))}
       </div>
       <h2 className="text-xl font-bold text-white mt-2">Round Complete!</h2>
-      <p className="text-4xl font-black text-white tabular-nums">{score}</p>
+      <p className="text-4xl font-black text-white tabular-nums font-display">{score}</p>
       <p className="text-white/50 text-sm">
         Next: {ROUND_SPEEDS[Math.min(round + 1, ROUND_SPEEDS.length - 1)]}x Speed
       </p>
       <Button
         onClick={onNextRound}
         size="lg"
-        className="gap-2 bg-white text-gray-900 hover:bg-white/90 font-bold rounded-full px-8 mt-4 active:scale-95 transition-transform"
+        className="gap-2 font-bold rounded-full px-8 mt-4 active:scale-95 transition-transform"
+        style={{ background: "linear-gradient(135deg, hsl(48,96%,53%), hsl(43,96%,56%))", color: "#0a0a14" }}
       >
         Continue
       </Button>
@@ -168,24 +203,31 @@ export const SongCompleteOverlay = ({ song, score, maxCombo, totalHits, totalNot
   const stars = accuracy > 95 ? 3 : accuracy > 80 ? 2 : accuracy > 50 ? 1 : 0;
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-blue-500/90 via-purple-600/90 to-pink-500/90 backdrop-blur-sm z-30">
-      <div className="flex flex-col items-center gap-4">
+    <div className="absolute inset-0 flex flex-col items-center justify-center z-30"
+      style={{
+        background: "linear-gradient(180deg, rgba(34,197,94,0.8) 0%, rgba(234,179,8,0.6) 40%, rgba(239,68,68,0.8) 100%)",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 tibeb-pattern opacity-30 pointer-events-none" />
+      <div className="relative z-10 flex flex-col items-center gap-4">
+        <span className="text-xs font-display font-bold tracking-[0.3em] uppercase" style={{ color: "hsl(48,96%,53%)" }}>
+          Ethio-Tiles
+        </span>
         <h2 className="text-lg font-semibold text-white/80">{song.title}</h2>
         <div className="flex gap-3">
           {[1, 2, 3].map((s) => (
             <Star
               key={s}
               className={`h-14 w-14 transition-all duration-500 ${
-                stars >= s
-                  ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_16px_rgba(250,204,21,0.8)]"
-                  : "text-gray-500/40"
+                stars >= s ? "drop-shadow-[0_0_16px_rgba(234,179,8,0.8)]" : "text-gray-500/40"
               }`}
-              style={{ transitionDelay: `${s * 200}ms` }}
+              style={stars >= s ? { color: "hsl(48,96%,53%)", fill: "hsl(48,96%,53%)" } : undefined}
             />
           ))}
         </div>
-        <p className="text-6xl font-black text-white tabular-nums mt-3 drop-shadow-lg">{score}</p>
-        <div className="flex gap-6 text-sm text-white/60 mt-1">
+        <p className="text-6xl font-black text-white tabular-nums mt-3 drop-shadow-lg font-display">{score}</p>
+        <div className="flex gap-6 text-sm text-white/70 mt-1">
           <span>Combo: {maxCombo}x</span>
           <span>Accuracy: {accuracy}%</span>
         </div>
@@ -193,7 +235,8 @@ export const SongCompleteOverlay = ({ song, score, maxCombo, totalHits, totalNot
           <Button
             onClick={onRetry}
             size="lg"
-            className="gap-2 bg-white text-gray-900 hover:bg-white/90 font-bold rounded-full px-8 shadow-lg active:scale-95 transition-transform"
+            className="gap-2 font-bold rounded-full px-8 shadow-lg active:scale-95 transition-transform"
+            style={{ background: "linear-gradient(135deg, hsl(48,96%,53%), hsl(43,96%,56%))", color: "#0a0a14" }}
           >
             <RotateCcw className="h-4 w-4" />
             Retry

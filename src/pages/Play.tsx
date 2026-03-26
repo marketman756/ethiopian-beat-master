@@ -15,32 +15,44 @@ import {
 } from "@/components/game/GameOverlays";
 import { useGameAudio } from "@/hooks/useGameAudio";
 
-// Hit zone position (percentage from top)
 const HIT_ZONE_Y = 82;
 const HOLD_HEIGHT_BASE = 18;
 const LEAD_IN_MS = 3000;
 
-/**
- * BPM-aware fall duration: how many ms a tile takes to traverse the screen.
- */
 function getFallDurationMs(bpm: number): number {
   return Math.max(1400, 3800 - bpm * 17);
 }
 
-/**
- * Convert chart time (ms) to Y position (% from top).
- * When noteTime === songTimeMs, tile top is at HIT_ZONE_Y.
- */
 function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: number): number {
   const timeUntilHit = noteTime - songTimeMs;
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
-const BG_THEMES = [
-  "linear-gradient(180deg, #7dd3fc 0%, #3b82f6 50%, #7c3aed 100%)",
-  "linear-gradient(180deg, #6ee7b7 0%, #10b981 50%, #14b8a6 100%)",
-  "linear-gradient(180deg, #c4b5fd 0%, #8b5cf6 50%, #ec4899 100%)",
-  "linear-gradient(180deg, #67e8f9 0%, #0ea5e9 50%, #2563eb 100%)",
+/**
+ * Ethiopian-themed stage backgrounds — transitions every 32 bars.
+ * Each stage shifts from earthy/traditional to vibrant/electronic.
+ */
+const STAGE_THEMES = [
+  // Stage 1: Deep Ethiopian night — dark indigo with green accent
+  {
+    bg: "linear-gradient(180deg, #0a0a14 0%, #0d1b2a 40%, #1a2e1a 100%)",
+    accent: "rgba(34,197,94,0.08)",
+  },
+  // Stage 2: Golden dawn — warm gold undertones
+  {
+    bg: "linear-gradient(180deg, #1a1408 0%, #2a1f0a 40%, #0d1b2a 100%)",
+    accent: "rgba(234,179,8,0.08)",
+  },
+  // Stage 3: Ethiopian red — deep crimson energy
+  {
+    bg: "linear-gradient(180deg, #1a0808 0%, #2a0a0a 40%, #14081e 100%)",
+    accent: "rgba(239,68,68,0.06)",
+  },
+  // Stage 4: Neon Addis — vibrant electronic
+  {
+    bg: "linear-gradient(180deg, #0a0a1e 0%, #1a0a2e 40%, #0a1e2e 100%)",
+    accent: "rgba(139,92,246,0.08)",
+  },
 ];
 
 const Play = () => {
@@ -50,7 +62,6 @@ const Play = () => {
   const chart = songId ? getChartForSong(songId) : undefined;
   const audio = useGameAudio();
 
-  // Game state
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
@@ -58,13 +69,12 @@ const Play = () => {
   const [gamePhase, setGamePhase] = useState<GamePhase>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [round, setRound] = useState(0);
-  const [bgIndex, setBgIndex] = useState(0);
+  const [stageIndex, setStageIndex] = useState(0);
+  const [beatFlash, setBeatFlash] = useState(false);
 
-  // Render state
   const [renderTiles, setRenderTiles] = useState<GameTile[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffect[]>([]);
 
-  // Refs for game loop (avoid React re-render lag)
   const tileIdRef = useRef(0);
   const animRef = useRef<number>();
   const chartIndexRef = useRef(0);
@@ -75,33 +85,29 @@ const Play = () => {
   const maxComboRef = useRef(0);
   const totalHitsRef = useRef(0);
   const gamePhaseRef = useRef<GamePhase>("loading");
-  const lastBgShiftRef = useRef(0);
+  const lastStageShiftRef = useRef(0);
+  const beatCountRef = useRef(0);
 
   useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
 
   const speedMultiplier = ROUND_SPEEDS[Math.min(round, ROUND_SPEEDS.length - 1)];
   const fallDurationMs = chart ? getFallDurationMs(chart.bpm) / speedMultiplier : 2000;
 
-  // Loading: preload audio file
+  // Loading
   useEffect(() => {
     if (gamePhase !== "loading" || !chart) return;
     let cancelled = false;
 
     const doLoad = async () => {
       if (chart.audioUrl) {
-        // Simulate loading progress while fetching
         const progressInterval = setInterval(() => {
           if (cancelled) return;
           setLoadingProgress((p) => Math.min(p + Math.random() * 10 + 3, 85));
         }, 200);
-
         await audio.loadAudio(chart.audioUrl);
         clearInterval(progressInterval);
       }
-
-      if (!cancelled) {
-        setLoadingProgress(100);
-      }
+      if (!cancelled) setLoadingProgress(100);
     };
 
     doLoad();
@@ -110,13 +116,12 @@ const Play = () => {
 
   useEffect(() => {
     if (loadingProgress >= 100 && gamePhase === "loading") {
-      // Small delay so user sees 100%
       const t = setTimeout(() => setGamePhase("ready"), 300);
       return () => clearTimeout(t);
     }
   }, [loadingProgress, gamePhase]);
 
-  // Spawn tiles that should be visible given current songTime
+  // Spawn tiles
   const spawnTiles = useCallback((songTimeMs: number, notes: ChartNote[]) => {
     const newTiles: GameTile[] = [];
     while (chartIndexRef.current < notes.length) {
@@ -125,8 +130,7 @@ const Play = () => {
       if (y > -30) {
         tileIdRef.current++;
         const holdHeight = note.type === "hold" && note.holdDuration
-          ? (note.holdDuration / fallDurationMs) * HIT_ZONE_Y + HOLD_HEIGHT_BASE
-          : 0;
+          ? (note.holdDuration / fallDurationMs) * HIT_ZONE_Y + HOLD_HEIGHT_BASE : 0;
         const holdEndTime = note.type === "hold" && note.holdDuration
           ? note.time + note.holdDuration : undefined;
         newTiles.push({
@@ -140,22 +144,26 @@ const Play = () => {
     return newTiles;
   }, [fallDurationMs]);
 
-  // ─── Main game loop ───
-  // Uses AudioContext.currentTime via getSongTimeMs() as the ONLY time source.
-  // requestAnimationFrame is used ONLY for scheduling renders.
+  // Game loop
   const gameLoop = useCallback(() => {
     if (!chart || gamePhaseRef.current !== "playing") return;
 
-    // Master clock — drift-free, synced to audio hardware
     const songTimeMs = audio.getSongTimeMs();
+    const beatMs = 60000 / chart.bpm;
 
-    // Background shift every ~8s
-    if (songTimeMs - lastBgShiftRef.current > 8000) {
-      lastBgShiftRef.current = songTimeMs;
-      setBgIndex((i) => i + 1);
+    // Stage progression every 32 bars (128 beats)
+    const currentBeat = Math.floor(songTimeMs / beatMs);
+    if (currentBeat > 0 && currentBeat % 128 === 0 && currentBeat !== beatCountRef.current) {
+      beatCountRef.current = currentBeat;
+      setStageIndex((i) => i + 1);
     }
 
-    // Update tile positions from master clock
+    // Beat-drop flash every 4 beats (measures) — brief brightness pulse
+    if (currentBeat > 0 && currentBeat % 4 === 0 && Math.floor(songTimeMs / beatMs) !== Math.floor((songTimeMs - 16) / beatMs)) {
+      setBeatFlash(true);
+      setTimeout(() => setBeatFlash(false), 120);
+    }
+
     let tiles = tilesRef.current;
     let changed = false;
 
@@ -171,7 +179,6 @@ const Play = () => {
       return { ...t, y: newY };
     });
 
-    // Check for missed tiles — instant fail
     const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 12);
     if (missed) {
       playMissSound();
@@ -183,19 +190,16 @@ const Play = () => {
       return;
     }
 
-    // Spawn new tiles
     const spawned = spawnTiles(songTimeMs, chart.notes);
     if (spawned.length > 0) {
       tiles = [...tiles, ...spawned];
       changed = true;
     }
 
-    // Clean up off-screen tiles
     const before = tiles.length;
     tiles = tiles.filter((t) => t.y < 120 && t.y > -40);
     if (tiles.length !== before) changed = true;
 
-    // Check completion
     if (
       chartIndexRef.current >= chart.notes.length &&
       tiles.filter((t) => !t.hit && t.type !== "hold").length === 0 &&
@@ -212,7 +216,6 @@ const Play = () => {
     tilesRef.current = tiles;
     if (changed || spawned.length > 0) setRenderTiles([...tiles]);
 
-    // Clean up expired hit effects
     setHitEffects((prev) => {
       const now = Date.now();
       const filtered = prev.filter((e) => now - e.timestamp < 500);
@@ -222,7 +225,6 @@ const Play = () => {
     animRef.current = requestAnimationFrame(gameLoop);
   }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio]);
 
-  // Start/stop game loop
   useEffect(() => {
     if (gamePhase === "playing") {
       animRef.current = requestAnimationFrame(gameLoop);
@@ -230,11 +232,11 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // Handle lane tap — uses AudioContext time for hit detection
+  // Hit detection
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
-    if (songTimeMs < 200) return; // Grace period at start
+    if (songTimeMs < 200) return;
 
     holdingLanesRef.current.add(lane);
 
@@ -249,7 +251,6 @@ const Play = () => {
       .sort((a, b) => Math.abs(a.chartTime - songTimeMs) - Math.abs(b.chartTime - songTimeMs));
 
     if (hittable.length === 0) {
-      // Tapped wrong lane — check if there were nearby tiles on other lanes
       const nearTiles = tiles.filter((t) => !t.hit && Math.abs(t.chartTime - songTimeMs) < 400);
       if (nearTiles.length > 0) {
         playMissSound();
@@ -321,7 +322,8 @@ const Play = () => {
     totalHitsRef.current = 0;
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    lastBgShiftRef.current = -LEAD_IN_MS;
+    lastStageShiftRef.current = 0;
+    beatCountRef.current = 0;
     holdingLanesRef.current.clear();
     setRenderTiles([]);
     setScore(0);
@@ -335,8 +337,8 @@ const Play = () => {
   const startGame = useCallback(() => {
     resetGame();
     setRound(0);
-    setBgIndex(0);
-    // Start audio with lead-in: tiles fall for LEAD_IN_MS before music begins
+    setStageIndex(0);
+    setBeatFlash(false);
     audio.startPlayback(LEAD_IN_MS, ROUND_SPEEDS[0]);
     setGamePhase("playing");
   }, [resetGame, audio]);
@@ -352,34 +354,44 @@ const Play = () => {
 
   if (!song || !chart) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: BG_THEMES[0] }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: STAGE_THEMES[0].bg }}>
         <p className="text-white/80 text-lg">Song not found.</p>
       </div>
     );
   }
 
-  const bg = BG_THEMES[bgIndex % BG_THEMES.length];
+  const stage = STAGE_THEMES[stageIndex % STAGE_THEMES.length];
 
   return (
     <div
       className="flex min-h-[100dvh] flex-col relative overflow-hidden select-none touch-none"
-      style={{ background: bg, transition: "background 2s ease" }}
+      style={{
+        background: stage.bg,
+        transition: "background 2s ease",
+        filter: beatFlash ? "brightness(1.3)" : "brightness(1)",
+      }}
     >
-      {/* Geometric overlay */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.06]"
-        style={{
-          backgroundImage: `
-            repeating-linear-gradient(45deg, transparent, transparent 60px, rgba(255,255,255,0.12) 60px, rgba(255,255,255,0.12) 61px),
-            repeating-linear-gradient(-45deg, transparent, transparent 60px, rgba(255,255,255,0.12) 60px, rgba(255,255,255,0.12) 61px)
-          `,
-        }}
-      />
+      {/* Tibeb pattern overlay */}
+      <div className="absolute inset-0 pointer-events-none tibeb-pattern opacity-30" />
 
-      {/* Light flares */}
+      {/* Stage accent glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute w-[200%] h-[25%] top-[15%] left-[-50%] bg-white/[0.03] rotate-[-12deg] blur-md" />
-        <div className="absolute w-[200%] h-[10%] top-[55%] left-[-50%] bg-white/[0.02] rotate-[8deg] blur-md" />
+        <div
+          className="absolute w-[200%] h-[30%] top-[10%] left-[-50%] rotate-[-12deg] blur-[60px]"
+          style={{ background: stage.accent }}
+        />
+        <div
+          className="absolute w-[200%] h-[15%] top-[55%] left-[-50%] rotate-[8deg] blur-[40px]"
+          style={{ background: stage.accent }}
+        />
       </div>
+
+      {/* Beat-drop flash overlay */}
+      {beatFlash && (
+        <div className="absolute inset-0 pointer-events-none z-[2] animate-beat-flash"
+          style={{ background: "radial-gradient(ellipse at center, rgba(234,179,8,0.15), transparent 70%)" }}
+        />
+      )}
 
       {/* HUD */}
       {gamePhase === "playing" && (

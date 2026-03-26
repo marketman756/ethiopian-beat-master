@@ -12,9 +12,9 @@ interface GameLanesProps {
 const HIT_ZONE_Y = 82;
 
 const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }: GameLanesProps) => {
-  // Dynamic tile height: beat interval in Y-space + 1% overlap to eliminate subpixel gaps
   const beatMs = 60000 / bpm;
-  const tileHeight = (beatMs / fallDurationMs) * HIT_ZONE_Y + 1;
+  // +2% overlap eliminates subpixel gaps between continuous tiles
+  const tileHeight = (beatMs / fallDurationMs) * HIT_ZONE_Y + 2;
 
   const handlePointerDown = useCallback((lane: number) => (e: React.PointerEvent) => {
     e.preventDefault();
@@ -28,19 +28,29 @@ const GameLanes = memo(({ tiles, onLaneTap, onLaneRelease, bpm, fallDurationMs }
 
   return (
     <>
-      {/* Lane dividers — thin subtle lines */}
+      {/* Lane dividers — thin Ethiopian gold accents */}
       <div className="absolute inset-0 flex pointer-events-none">
         {Array.from({ length: LANES }).map((_, i) => (
-          <div key={i} className="flex-1 border-r border-white/[0.08] last:border-r-0" />
+          <div
+            key={i}
+            className="flex-1 last:border-r-0"
+            style={{ borderRight: i < LANES - 1 ? "1px solid rgba(234,179,8,0.08)" : "none" }}
+          />
         ))}
       </div>
 
-      {/* Hit zone — glowing line */}
+      {/* Hit zone — glowing Ethiopian gold line */}
       <div
         className="absolute left-0 right-0 pointer-events-none z-[1]"
         style={{ top: "82%" }}
       >
-        <div className="h-[2px] bg-white/25 shadow-[0_0_16px_3px_rgba(255,255,255,0.2)]" />
+        <div
+          style={{
+            height: "2px",
+            background: "linear-gradient(90deg, rgba(234,179,8,0.1), rgba(234,179,8,0.4), rgba(234,179,8,0.1))",
+            boxShadow: "0 0 12px 2px rgba(234,179,8,0.15)",
+          }}
+        />
       </div>
 
       {/* Tiles */}
@@ -83,11 +93,11 @@ interface TileElementProps {
 
 const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
   const laneWidth = 100 / LANES;
-  const gap = 0.4;
+  const gap = 0.3;
   const left = tile.lane * laneWidth + gap / 2;
   const width = laneWidth - gap;
 
-  // HOLD TILE — cyan gradient with rounded bottom
+  // ─── HOLD TILE ─── Ethiopian teal/cyan gradient
   if (tile.type === "hold") {
     const isActive = tile.holding;
     return (
@@ -132,8 +142,7 @@ const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
     );
   }
 
-  // TAP TILE — solid black rectangle, height from props for continuous look
-
+  // ─── TAP TILE ─── Sharp 3D black with subtle Ethiopian gold edge
   return (
     <div
       className="absolute will-change-transform"
@@ -148,15 +157,24 @@ const TileElement = memo(({ tile, tileHeight }: TileElementProps) => {
       <div
         className="absolute inset-0 overflow-hidden"
         style={{
-          background: "linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 50%, #000000 100%)",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)",
-          borderRadius: "2px",
+          background: "linear-gradient(180deg, #1c1c1c 0%, #111111 35%, #080808 70%, #000000 100%)",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.5)",
+          borderRadius: "3px",
         }}
       >
-        {/* Top edge highlight */}
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-b from-white/[0.08] to-transparent" />
-        {/* Left edge reflection */}
-        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-gradient-to-r from-white/[0.04] to-transparent" />
+        {/* Top edge — Ethiopian gold subtle highlight */}
+        <div
+          className="absolute inset-x-0 top-0 h-[1.5px]"
+          style={{
+            background: "linear-gradient(90deg, rgba(234,179,8,0.0), rgba(234,179,8,0.12), rgba(234,179,8,0.0))",
+          }}
+        />
+        {/* Left reflection strip */}
+        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-r from-white/[0.06] to-transparent" />
+        {/* Right edge shadow */}
+        <div className="absolute right-0 top-0 bottom-0 w-[1px] bg-black/40" />
+        {/* Inner 3D bevel — very subtle */}
+        <div className="absolute inset-x-[4px] top-[2px] bottom-[2px] rounded-[2px] bg-gradient-to-b from-white/[0.03] via-transparent to-black/20" />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,37 +8,26 @@
   :root {
     --background: 0 0% 99%;
     --foreground: 220 20% 10%;
-
     --card: 0 0% 100%;
     --card-foreground: 220 20% 10%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
-
     --primary: 211 82% 50%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 210 20% 96%;
     --secondary-foreground: 220 20% 10%;
-
     --muted: 210 14% 95%;
     --muted-foreground: 220 10% 46%;
-
     --accent: 211 82% 50%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 211 82% 50%;
-
     --radius: 0.5rem;
-
     --surface-elevated: 0 0% 100%;
     --surface-sunken: 210 20% 97%;
-
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -47,6 +36,13 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 211 82% 50%;
+
+    /* Ethiopian color palette */
+    --ethio-green: 145 63% 42%;
+    --ethio-yellow: 48 96% 53%;
+    --ethio-red: 0 72% 51%;
+    --ethio-gold: 43 96% 56%;
+    --ethio-deep: 260 40% 12%;
   }
 }
 
@@ -54,11 +50,9 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
-
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
   }
@@ -68,78 +62,116 @@
   .text-balance {
     text-wrap: balance;
   }
+  .font-display {
+    font-family: 'Orbitron', sans-serif;
+  }
 }
 
-/* Scroll reveal animation */
-@keyframes reveal-up {
-  from {
+/* ─── Tibeb-inspired geometric pattern ─── */
+.tibeb-pattern {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent, transparent 18px,
+      rgba(234,179,8,0.06) 18px, rgba(234,179,8,0.06) 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent, transparent 18px,
+      rgba(234,179,8,0.06) 18px, rgba(234,179,8,0.06) 20px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent, transparent 24px,
+      rgba(22,163,74,0.04) 24px, rgba(22,163,74,0.04) 25px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent, transparent 24px,
+      rgba(220,38,38,0.04) 24px, rgba(220,38,38,0.04) 25px
+    );
+}
+
+/* ─── Beat-drop flash ─── */
+@keyframes beat-flash {
+  0% {
+    opacity: 0.35;
+    transform: scale(1.06);
+  }
+  100% {
     opacity: 0;
-    transform: translateY(20px);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
+    transform: scale(1);
   }
 }
+.animate-beat-flash {
+  animation: beat-flash 0.25s ease-out forwards;
+}
 
+/* ─── Scroll reveal ─── */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
 .animate-reveal-up {
   animation: reveal-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Hit feedback — pops up and fades */
+/* ─── Hit feedback ─── */
 @keyframes hit-feedback {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(0.7);
-  }
-  25% {
-    opacity: 1;
-    transform: translateY(-10px) scale(1.2);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-40px) scale(1);
-  }
+  0%   { opacity: 1; transform: translateY(0) scale(0.7); }
+  25%  { opacity: 1; transform: translateY(-10px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-40px) scale(1); }
 }
-
 .animate-hit-feedback {
   animation: hit-feedback 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Ripple burst on hit */
+/* ─── Ripple burst ─── */
 @keyframes ripple-burst {
-  0% {
-    transform: scale(0.3);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-  }
+  0%   { transform: scale(0.3); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 
-/* Pulse glow for UI elements */
+/* ─── Particle burst on hit ─── */
+@keyframes particle-fly {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
+}
+
+/* ─── Pulse glow ─── */
 @keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 hsl(211 82% 50% / 0.3);
-  }
-  50% {
-    box-shadow: 0 0 20px 4px hsl(211 82% 50% / 0.15);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--ethio-gold) / 0.3); }
+  50%      { box-shadow: 0 0 20px 4px hsl(var(--ethio-gold) / 0.15); }
 }
-
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Tile tap flash */
+/* ─── Tile tap flash ─── */
 @keyframes tile-tap-flash {
-  0% { opacity: 0.6; }
+  0%   { opacity: 0.6; }
   100% { opacity: 0; }
 }
-
 .animate-tile-tap-flash {
   animation: tile-tap-flash 0.15s ease-out forwards;
+}
+
+/* ─── Stage transition shimmer ─── */
+@keyframes stage-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-stage-shimmer {
+  background-size: 200% 100%;
+  animation: stage-shimmer 3s linear infinite;
+}
+
+/* ─── Score pop ─── */
+@keyframes score-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-score-pop {
+  animation: score-pop 0.2s ease-out;
 }
