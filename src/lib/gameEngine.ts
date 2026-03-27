@@ -48,7 +48,7 @@ export const HEALTH = {
   GAIN_BAD: 0,
   REDUCE_MISS: 15,
   FAIL_THRESHOLD: 0,
-} as const;
+};
 
 // ─── HIT WINDOWS (inspired by AutoRhythm's tiered judgment) ───
 export const HIT_WINDOWS = {
