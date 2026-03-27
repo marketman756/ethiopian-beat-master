@@ -3,8 +3,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { songs } from "@/lib/songs";
 import { getChartForSong, ChartNote } from "@/lib/tileCharts";
 import {
-  LANES, ROUND_SPEEDS, GamePhase, GameTile, HitEffect,
-  getHitLabel, getScoreForHit, playTapSound, playMissSound, triggerVibration,
+  LANES, ROUND_SPEEDS, GamePhase, GameTile, HitEffect, HEALTH,
+  getHitLabel, getScoreForHit, getHealthChange, playTapSound, playMissSound,
+  triggerVibration, KEYBOARD_LANE_MAP,
 } from "@/lib/gameEngine";
 import GameLanes from "@/components/game/GameLanes";
 import HitEffects from "@/components/game/HitEffects";
@@ -28,31 +29,11 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
-/**
- * Ethiopian-themed stage backgrounds — transitions every 32 bars.
- * Each stage shifts from earthy/traditional to vibrant/electronic.
- */
 const STAGE_THEMES = [
-  // Stage 1: Deep Ethiopian night — dark indigo with green accent
-  {
-    bg: "linear-gradient(180deg, #0a0a14 0%, #0d1b2a 40%, #1a2e1a 100%)",
-    accent: "rgba(34,197,94,0.08)",
-  },
-  // Stage 2: Golden dawn — warm gold undertones
-  {
-    bg: "linear-gradient(180deg, #1a1408 0%, #2a1f0a 40%, #0d1b2a 100%)",
-    accent: "rgba(234,179,8,0.08)",
-  },
-  // Stage 3: Ethiopian red — deep crimson energy
-  {
-    bg: "linear-gradient(180deg, #1a0808 0%, #2a0a0a 40%, #14081e 100%)",
-    accent: "rgba(239,68,68,0.06)",
-  },
-  // Stage 4: Neon Addis — vibrant electronic
-  {
-    bg: "linear-gradient(180deg, #0a0a1e 0%, #1a0a2e 40%, #0a1e2e 100%)",
-    accent: "rgba(139,92,246,0.08)",
-  },
+  { bg: "linear-gradient(180deg, #0a0a14 0%, #0d1b2a 40%, #1a2e1a 100%)", accent: "rgba(34,197,94,0.08)" },
+  { bg: "linear-gradient(180deg, #1a1408 0%, #2a1f0a 40%, #0d1b2a 100%)", accent: "rgba(234,179,8,0.08)" },
+  { bg: "linear-gradient(180deg, #1a0808 0%, #2a0a0a 40%, #14081e 100%)", accent: "rgba(239,68,68,0.06)" },
+  { bg: "linear-gradient(180deg, #0a0a1e 0%, #1a0a2e 40%, #0a1e2e 100%)", accent: "rgba(139,92,246,0.08)" },
 ];
 
 const Play = () => {
@@ -66,6 +47,7 @@ const Play = () => {
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [totalHits, setTotalHits] = useState(0);
+  const [health, setHealth] = useState(HEALTH.INITIAL);
   const [gamePhase, setGamePhase] = useState<GamePhase>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [round, setRound] = useState(0);
@@ -84,8 +66,8 @@ const Play = () => {
   const comboRef = useRef(0);
   const maxComboRef = useRef(0);
   const totalHitsRef = useRef(0);
+  const healthRef = useRef(HEALTH.INITIAL);
   const gamePhaseRef = useRef<GamePhase>("loading");
-  const lastStageShiftRef = useRef(0);
   const beatCountRef = useRef(0);
 
   useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
@@ -97,7 +79,6 @@ const Play = () => {
   useEffect(() => {
     if (gamePhase !== "loading" || !chart) return;
     let cancelled = false;
-
     const doLoad = async () => {
       if (chart.audioUrl) {
         const progressInterval = setInterval(() => {
@@ -109,7 +90,6 @@ const Play = () => {
       }
       if (!cancelled) setLoadingProgress(100);
     };
-
     doLoad();
     return () => { cancelled = true; };
   }, [gamePhase, chart, audio]);
@@ -144,6 +124,23 @@ const Play = () => {
     return newTiles;
   }, [fallDurationMs]);
 
+  // ─── HEALTH CHANGE (from AutoRhythm) ───
+  const applyHealthChange = useCallback((label: string) => {
+    const delta = getHealthChange(label);
+    healthRef.current = Math.max(0, Math.min(HEALTH.MAX, healthRef.current + delta));
+    setHealth(healthRef.current);
+
+    // Game over only when health hits 0
+    if (healthRef.current <= HEALTH.FAIL_THRESHOLD) {
+      playMissSound();
+      triggerVibration(100);
+      audio.stopPlayback();
+      setGamePhase("failed");
+      return true;
+    }
+    return false;
+  }, [audio]);
+
   // Game loop
   const gameLoop = useCallback(() => {
     if (!chart || gamePhaseRef.current !== "playing") return;
@@ -158,7 +155,7 @@ const Play = () => {
       setStageIndex((i) => i + 1);
     }
 
-    // Beat-drop flash every 4 beats (measures) — brief brightness pulse
+    // Beat-drop flash every 4 beats
     if (currentBeat > 0 && currentBeat % 4 === 0 && Math.floor(songTimeMs / beatMs) !== Math.floor((songTimeMs - 16) / beatMs)) {
       setBeatFlash(true);
       setTimeout(() => setBeatFlash(false), 120);
@@ -179,15 +176,21 @@ const Play = () => {
       return { ...t, y: newY };
     });
 
-    const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 25);
-    if (missed) {
-      playMissSound();
-      triggerVibration(100);
-      audio.stopPlayback();
-      tilesRef.current = tiles;
-      setRenderTiles([...tiles]);
-      setGamePhase("failed");
-      return;
+    // ─── MISS DETECTION (AutoRhythm style: drain health, don't instant fail) ───
+    const missedTiles = tiles.filter((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 20);
+    if (missedTiles.length > 0) {
+      for (const missed of missedTiles) {
+        missed.hit = true; // Mark as processed
+        comboRef.current = 0; // Reset combo on miss (AutoRhythm pattern)
+        setCombo(0);
+        const failed = applyHealthChange("MISS");
+        if (failed) {
+          tilesRef.current = tiles;
+          setRenderTiles([...tiles]);
+          return; // Stop loop on game over
+        }
+      }
+      changed = true;
     }
 
     const spawned = spawnTiles(songTimeMs, chart.notes);
@@ -223,7 +226,7 @@ const Play = () => {
     });
 
     animRef.current = requestAnimationFrame(gameLoop);
-  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio]);
+  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio, applyHealthChange]);
 
   useEffect(() => {
     if (gamePhase === "playing") {
@@ -232,7 +235,7 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // Hit detection — immediate ref-based resolution, NO wrong-lane fail
+  // ─── HIT DETECTION — immediate ref-based, NO wrong-lane fail ───
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
@@ -240,8 +243,6 @@ const Play = () => {
     holdingLanesRef.current.add(lane);
 
     const tiles = tilesRef.current;
-
-    // Find closest hittable tile in this lane — very forgiving window
     const HIT_WINDOW_MS = 400;
     let bestTile: GameTile | null = null;
     let bestDist = Infinity;
@@ -263,10 +264,9 @@ const Play = () => {
       }
     }
 
-    // No matching tile? Just ignore — NO fail, NO penalty
+    // No matching tile? Just ignore — NO fail, NO penalty (AutoRhythm style)
     if (!bestTile) return;
 
-    // Resolve hit IMMEDIATELY on the ref (not via setState)
     const target = bestTile;
     const deltaMs = target.chartTime - songTimeMs;
     const label = getHitLabel(deltaMs);
@@ -278,10 +278,13 @@ const Play = () => {
     if (currentCombo > maxComboRef.current) maxComboRef.current = currentCombo;
     totalHitsRef.current++;
 
+    // Apply health gain
+    applyHealthChange(label);
+
     playTapSound(lane);
     triggerVibration();
 
-    // Mutate ref directly for instant resolution — prevents double-hits
+    // Mutate ref directly for instant resolution
     for (let i = 0; i < tilesRef.current.length; i++) {
       const t = tilesRef.current[i];
       if (t.id !== target.id) continue;
@@ -291,8 +294,9 @@ const Play = () => {
       } else if (t.type === "double") {
         const hitPrimary = t.lane === lane ? true : t.hit;
         const hitSecond = t.lane2 === lane ? true : t.hit2;
-        tilesRef.current[i] = { ...t, hit: hitPrimary && hitSecond, hit2: hitSecond };
-        if (!(hitPrimary && hitSecond)) {
+        if (hitPrimary && hitSecond) {
+          tilesRef.current[i] = { ...t, hit: true, hit2: true };
+        } else {
           tilesRef.current[i] = { ...t, hit: hitPrimary, hit2: hitSecond };
         }
       } else {
@@ -301,7 +305,6 @@ const Play = () => {
       break;
     }
 
-    // Batch React state updates
     setScore(scoreRef.current);
     setCombo(currentCombo);
     setMaxCombo(maxComboRef.current);
@@ -310,24 +313,56 @@ const Play = () => {
       id: target.id, lane, y: target.y, label, timestamp: Date.now(),
     }]);
     setRenderTiles([...tilesRef.current]);
-  }, [audio]);
+  }, [audio, applyHealthChange]);
 
   const handleLaneRelease = useCallback((lane: number) => {
     holdingLanesRef.current.delete(lane);
-    const tiles = tilesRef.current;
     let updated = false;
-    tilesRef.current = tiles.map((t) => {
+    for (let i = 0; i < tilesRef.current.length; i++) {
+      const t = tilesRef.current[i];
       if (t.type === "hold" && t.holding && t.lane === lane) {
         const scoreGain = getScoreForHit("GREAT", comboRef.current);
         scoreRef.current += scoreGain;
         setScore(scoreRef.current);
+        tilesRef.current[i] = { ...t, holding: false, holdComplete: true, hit: true };
         updated = true;
-        return { ...t, holding: false, holdComplete: true, hit: true };
       }
-      return t;
-    });
+    }
     if (updated) setRenderTiles([...tilesRef.current]);
   }, []);
+
+  // ─── KEYBOARD CONTROLS (from AutoRhythm: Z, X, ,, . for 4 lanes) ───
+  useEffect(() => {
+    if (gamePhase !== "playing") return;
+
+    const pressedKeys = new Set<string>();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (pressedKeys.has(e.key)) return; // Prevent key repeat
+      pressedKeys.add(e.key);
+      const lane = KEYBOARD_LANE_MAP[e.key];
+      if (lane !== undefined) {
+        e.preventDefault();
+        handleLaneTap(lane);
+      }
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      pressedKeys.delete(e.key);
+      const lane = KEYBOARD_LANE_MAP[e.key];
+      if (lane !== undefined) {
+        e.preventDefault();
+        handleLaneRelease(lane);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [gamePhase, handleLaneTap, handleLaneRelease]);
 
   const resetGame = useCallback(() => {
     tilesRef.current = [];
@@ -335,9 +370,9 @@ const Play = () => {
     comboRef.current = 0;
     maxComboRef.current = 0;
     totalHitsRef.current = 0;
+    healthRef.current = HEALTH.INITIAL;
     tileIdRef.current = 0;
     chartIndexRef.current = 0;
-    lastStageShiftRef.current = 0;
     beatCountRef.current = 0;
     holdingLanesRef.current.clear();
     setRenderTiles([]);
@@ -345,6 +380,7 @@ const Play = () => {
     setCombo(0);
     setMaxCombo(0);
     setTotalHits(0);
+    setHealth(HEALTH.INITIAL);
     setHitEffects([]);
     audio.stopPlayback();
   }, [audio]);
@@ -386,10 +422,8 @@ const Play = () => {
         filter: beatFlash ? "brightness(1.3)" : "brightness(1)",
       }}
     >
-      {/* Tibeb pattern overlay */}
       <div className="absolute inset-0 pointer-events-none tibeb-pattern opacity-30" />
 
-      {/* Stage accent glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
           className="absolute w-[200%] h-[30%] top-[10%] left-[-50%] rotate-[-12deg] blur-[60px]"
@@ -401,14 +435,12 @@ const Play = () => {
         />
       </div>
 
-      {/* Beat-drop flash overlay */}
       {beatFlash && (
         <div className="absolute inset-0 pointer-events-none z-[2] animate-beat-flash"
           style={{ background: "radial-gradient(ellipse at center, rgba(234,179,8,0.15), transparent 70%)" }}
         />
       )}
 
-      {/* HUD */}
       {gamePhase === "playing" && (
         <GameHUD
           score={score}
@@ -416,6 +448,7 @@ const Play = () => {
           round={round}
           totalNotes={chart.notes.length}
           currentHits={totalHits}
+          health={health}
           onBack={() => navigate(-1)}
           onPause={() => {
             setGamePhase("paused");
@@ -424,7 +457,6 @@ const Play = () => {
         />
       )}
 
-      {/* Game area */}
       <div className="relative flex-1 mx-auto w-full max-w-md overflow-hidden">
         <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} bpm={chart.bpm} fallDurationMs={fallDurationMs} />
         <HitEffects effects={hitEffects} combo={combo} />

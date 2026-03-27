@@ -1,5 +1,5 @@
 import { Star, Crown } from "lucide-react";
-import { ROUND_SPEEDS } from "@/lib/gameEngine";
+import { HEALTH } from "@/lib/gameEngine";
 
 interface GameHUDProps {
   score: number;
@@ -7,6 +7,7 @@ interface GameHUDProps {
   round: number;
   totalNotes: number;
   currentHits: number;
+  health: number;
   onBack: () => void;
   onPause: () => void;
 }
@@ -20,19 +21,38 @@ const MILESTONES = [
   { position: 0.92, type: "crown" as const },
 ];
 
-const MILESTONE_THRESHOLDS = [50, 150, 300, 500, 800, 1200];
+const MILESTONE_THRESHOLDS = [500, 1500, 3000, 5000, 8000, 12000];
 
-const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause }: GameHUDProps) => {
-  const progress = Math.min(score / 1500, 1);
+const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, onBack, onPause }: GameHUDProps) => {
+  const progress = Math.min(score / 15000, 1);
+  const healthPercent = Math.max(0, health / HEALTH.MAX);
+
+  // Health bar color — green > yellow > red (from AutoRhythm)
+  const healthColor =
+    healthPercent > 0.5 ? "hsl(142, 71%, 45%)" :
+    healthPercent > 0.25 ? "hsl(43, 96%, 56%)" :
+    "hsl(0, 72%, 51%)";
 
   return (
     <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+      {/* Health bar — full width at top (from AutoRhythm Board.js) */}
+      <div className="relative mx-auto max-w-md px-1 pt-1">
+        <div className="relative h-[4px] rounded-full overflow-hidden bg-white/10">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
+            style={{
+              width: `${healthPercent * 100}%`,
+              background: healthColor,
+              boxShadow: `0 0 8px ${healthColor}`,
+            }}
+          />
+        </div>
+      </div>
+
       {/* Progress bar with milestones */}
-      <div className="relative mx-auto max-w-md px-2 pt-2">
-        <div className="relative h-8 flex items-center">
-          {/* Background line */}
+      <div className="relative mx-auto max-w-md px-2 pt-1">
+        <div className="relative h-7 flex items-center">
           <div className="absolute left-2 right-2 h-[2px] bg-white/20 top-1/2 -translate-y-1/2" />
-          {/* Filled line — Ethiopian gold gradient */}
           <div
             className="absolute left-2 h-[2px] top-1/2 -translate-y-1/2 transition-all duration-300"
             style={{
@@ -41,14 +61,12 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause
               boxShadow: "0 0 8px rgba(234,179,8,0.4)",
             }}
           />
-          {/* Position indicator */}
           <div
             className="absolute top-1/2 -translate-y-1/2 transition-all duration-300"
             style={{ left: `${2 + progress * (100 - 4)}%` }}
           >
             <div className="w-2 h-2 bg-white rotate-45 -translate-x-1/2 shadow-sm" />
           </div>
-          {/* Milestone icons */}
           {MILESTONES.map((m, i) => {
             const achieved = score >= MILESTONE_THRESHOLDS[i];
             const Icon = m.type === "star" ? Star : Crown;
@@ -59,30 +77,38 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, onBack, onPause
                 style={{ left: `${2 + m.position * (100 - 4)}%` }}
               >
                 <Icon
-                  className={`h-4 w-4 transition-all duration-500 ${
+                  className={`h-3.5 w-3.5 transition-all duration-500 ${
                     achieved
                       ? "drop-shadow-[0_0_6px_rgba(234,179,8,0.8)] scale-125"
                       : "text-white/30"
                   }`}
                   style={achieved ? { color: "hsl(48,96%,53%)", fill: "hsl(48,96%,53%)" } : undefined}
                 />
-                {!achieved && (
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/40" />
-                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Score */}
+      {/* Score + Combo */}
       <div className="flex flex-col items-center mx-auto max-w-md -mt-1">
         <span
-          className="text-[42px] font-black text-white tabular-nums leading-none font-display"
+          className="text-[38px] font-black text-white tabular-nums leading-none font-display"
           style={{ textShadow: "0 2px 16px rgba(234,179,8,0.2), 0 2px 8px rgba(0,0,0,0.3)" }}
         >
           {score}
         </span>
+        {combo > 1 && (
+          <span
+            className="text-xs font-bold tabular-nums mt-0.5"
+            style={{
+              color: combo >= 50 ? "hsl(48,96%,53%)" : combo >= 20 ? "hsl(142,71%,45%)" : "rgba(255,255,255,0.6)",
+              textShadow: combo >= 20 ? "0 0 8px currentColor" : "none",
+            }}
+          >
+            {combo}x COMBO
+          </span>
+        )}
       </div>
 
       {/* Pause button */}
