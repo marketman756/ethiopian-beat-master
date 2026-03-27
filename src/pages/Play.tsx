@@ -179,7 +179,7 @@ const Play = () => {
       return { ...t, y: newY };
     });
 
-    const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 12);
+    const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 25);
     if (missed) {
       playMissSound();
       triggerVibration(100);
