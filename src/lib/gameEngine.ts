@@ -1,6 +1,7 @@
 /**
  * Game Engine — core types, constants, and audio for the rhythm game.
- * Timing is ms-based for accurate hit detection matching Magic Tiles 3.
+ * Patterns ported from AutoRhythm (health system, combo multiplier, judgment tiers)
+ * and Piano Tiles Flutter (sequential validation, per-lane audio).
  */
 
 export const LANES = 4;
@@ -37,29 +38,62 @@ export interface HitEffect {
   timestamp: number;
 }
 
-// Hit windows in milliseconds — matching Magic Tiles 3 feel
+// ─── HEALTH SYSTEM (from AutoRhythm) ───
+export const HEALTH = {
+  MAX: 100,
+  INITIAL: 100,
+  GAIN_PERFECT: 3,
+  GAIN_GREAT: 2,
+  GAIN_GOOD: 1,
+  GAIN_BAD: 0,
+  REDUCE_MISS: 15,
+  FAIL_THRESHOLD: 0,
+} as const;
+
+// ─── HIT WINDOWS (inspired by AutoRhythm's tiered judgment) ───
 export const HIT_WINDOWS = {
-  PERFECT: 50,
-  GREAT: 100,
-  COOL: 150,
-  NICE: 200,
+  FLAWLESS: 40,   // ±40ms — pixel perfect
+  PERFECT: 80,    // ±80ms — very tight
+  GREAT: 130,     // ±130ms — good
+  GOOD: 200,      // ±200ms — acceptable
+  BAD: 300,       // ±300ms — late but counted
 } as const;
 
 export function getHitLabel(deltaMs: number): string {
   const abs = Math.abs(deltaMs);
+  if (abs <= HIT_WINDOWS.FLAWLESS) return "FLAWLESS";
   if (abs <= HIT_WINDOWS.PERFECT) return "PERFECT";
   if (abs <= HIT_WINDOWS.GREAT) return "GREAT";
-  if (abs <= HIT_WINDOWS.COOL) return "COOL";
-  return "NICE";
+  if (abs <= HIT_WINDOWS.GOOD) return "GOOD";
+  return "BAD";
 }
 
+// ─── SCORING (from AutoRhythm: score = base * combo multiplier) ───
 export function getScoreForHit(label: string, combo: number): number {
-  const base = label === "PERFECT" ? 15 : label === "GREAT" ? 12 : label === "COOL" ? 8 : 5;
-  return base + Math.floor(combo * 1.5);
+  const base =
+    label === "FLAWLESS" ? 300 :
+    label === "PERFECT" ? 200 :
+    label === "GREAT" ? 100 :
+    label === "GOOD" ? 50 : 25;
+  // Combo multiplier: 1x at combo 0, up to 4x at combo 100+
+  const multiplier = 1 + Math.min(combo, 100) * 0.03;
+  return Math.round(base * multiplier);
+}
+
+export function getHealthChange(label: string): number {
+  switch (label) {
+    case "FLAWLESS": return HEALTH.GAIN_PERFECT;
+    case "PERFECT": return HEALTH.GAIN_PERFECT;
+    case "GREAT": return HEALTH.GAIN_GREAT;
+    case "GOOD": return HEALTH.GAIN_GOOD;
+    case "BAD": return HEALTH.GAIN_BAD;
+    default: return -HEALTH.REDUCE_MISS;
+  }
 }
 
 /**
  * Web Audio API sound engine — generates piano-like tap sounds with zero latency.
+ * Per-lane note frequencies inspired by Piano Tiles Flutter (different note per lane).
  */
 let audioCtx: AudioContext | null = null;
 
@@ -73,7 +107,7 @@ function getAudioCtx(): AudioContext {
   return audioCtx;
 }
 
-// Piano note frequencies for each lane (C4, E4, G4, C5)
+// Piano note frequencies for each lane (C4, E4, G4, C5) — matches Flutter repo
 const LANE_NOTES = [261.63, 329.63, 392.00, 523.25];
 
 export function playTapSound(lane: number) {
@@ -133,3 +167,16 @@ export function triggerVibration(ms: number = 30) {
     // Not supported
   }
 }
+
+// ─── KEYBOARD MAPPING (from AutoRhythm: Z, X, ,, . for 4 lanes) ───
+export const KEYBOARD_LANE_MAP: Record<string, number> = {
+  'z': 0, 'Z': 0,
+  'x': 1, 'X': 1,
+  ',': 2,
+  '.': 3,
+  // Alternative WASD-style for accessibility
+  'd': 0, 'D': 0,
+  'f': 1, 'F': 1,
+  'j': 2, 'J': 2,
+  'k': 3, 'K': 3,
+};
