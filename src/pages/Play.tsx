@@ -179,7 +179,7 @@ const Play = () => {
       return { ...t, y: newY };
     });
 
-    const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 12);
+    const missed = tiles.find((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 25);
     if (missed) {
       playMissSound();
       triggerVibration(100);
@@ -232,7 +232,7 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // Hit detection — uses BOTH timing AND visual position for maximum responsiveness
+  // Hit detection — immediate ref-based resolution, NO wrong-lane fail
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
@@ -240,35 +240,34 @@ const Play = () => {
     holdingLanesRef.current.add(lane);
 
     const tiles = tilesRef.current;
-    // Wider hit window (300ms) for forgiving tap detection
-    const hittable = tiles
-      .filter((t) => {
-        if (t.hit || t.holding) return false;
-        const inLane = t.lane === lane || (t.type === "double" && t.lane2 === lane);
-        if (!inLane) return false;
-        // Accept if within timing window OR if tile is visually near hit zone
-        const timeDelta = Math.abs(t.chartTime - songTimeMs);
-        const visuallyNear = t.y >= 50 && t.y <= 100; // in the lower half of screen
-        return timeDelta <= 300 || visuallyNear;
-      })
-      .sort((a, b) => Math.abs(a.chartTime - songTimeMs) - Math.abs(b.chartTime - songTimeMs));
 
-    if (hittable.length === 0) {
-      // Only fail if there's an IMMINENT tile on a DIFFERENT lane (player tapped wrong lane)
-      const imminentOnOtherLane = tiles.find((t) =>
-        !t.hit && !t.holding && t.lane !== lane &&
-        t.y >= 70 && t.y <= 90
-      );
-      if (imminentOnOtherLane) {
-        playMissSound();
-        triggerVibration(100);
-        audio.stopPlayback();
-        setGamePhase("failed");
+    // Find closest hittable tile in this lane — very forgiving window
+    const HIT_WINDOW_MS = 400;
+    let bestTile: GameTile | null = null;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      if (t.hit || t.holding) continue;
+      const inLane = t.lane === lane || (t.type === "double" && t.lane2 === lane);
+      if (!inLane) continue;
+
+      const timeDelta = Math.abs(t.chartTime - songTimeMs);
+      const visuallyNear = t.y >= 40 && t.y <= 105;
+
+      if (timeDelta <= HIT_WINDOW_MS || visuallyNear) {
+        if (timeDelta < bestDist) {
+          bestDist = timeDelta;
+          bestTile = t;
+        }
       }
-      return;
     }
 
-    const target = hittable[0];
+    // No matching tile? Just ignore — NO fail, NO penalty
+    if (!bestTile) return;
+
+    // Resolve hit IMMEDIATELY on the ref (not via setState)
+    const target = bestTile;
     const deltaMs = target.chartTime - songTimeMs;
     const label = getHitLabel(deltaMs);
     const currentCombo = comboRef.current + 1;
@@ -282,6 +281,27 @@ const Play = () => {
     playTapSound(lane);
     triggerVibration();
 
+    // Mutate ref directly for instant resolution — prevents double-hits
+    for (let i = 0; i < tilesRef.current.length; i++) {
+      const t = tilesRef.current[i];
+      if (t.id !== target.id) continue;
+
+      if (t.type === "hold") {
+        tilesRef.current[i] = { ...t, holding: true };
+      } else if (t.type === "double") {
+        const hitPrimary = t.lane === lane ? true : t.hit;
+        const hitSecond = t.lane2 === lane ? true : t.hit2;
+        tilesRef.current[i] = { ...t, hit: hitPrimary && hitSecond, hit2: hitSecond };
+        if (!(hitPrimary && hitSecond)) {
+          tilesRef.current[i] = { ...t, hit: hitPrimary, hit2: hitSecond };
+        }
+      } else {
+        tilesRef.current[i] = { ...t, hit: true };
+      }
+      break;
+    }
+
+    // Batch React state updates
     setScore(scoreRef.current);
     setCombo(currentCombo);
     setMaxCombo(maxComboRef.current);
@@ -289,18 +309,6 @@ const Play = () => {
     setHitEffects((prev) => [...prev, {
       id: target.id, lane, y: target.y, label, timestamp: Date.now(),
     }]);
-
-    tilesRef.current = tiles.map((t) => {
-      if (t.id !== target.id) return t;
-      if (t.type === "hold") return { ...t, holding: true };
-      if (t.type === "double") {
-        const hitPrimary = t.lane === lane ? true : t.hit;
-        const hitSecond = t.lane2 === lane ? true : t.hit2;
-        if (hitPrimary && hitSecond) return { ...t, hit: true, hit2: true };
-        return { ...t, hit: hitPrimary, hit2: hitSecond };
-      }
-      return { ...t, hit: true };
-    });
     setRenderTiles([...tilesRef.current]);
   }, [audio]);
 
