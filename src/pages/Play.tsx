@@ -472,6 +472,35 @@ const Play = () => {
         <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} bpm={chart.bpm} fallDurationMs={fallDurationMs} />
         <HitEffects effects={hitEffects} combo={combo} />
 
+        {/* MT3 style: Score increment popups near hit zone */}
+        {scorePopups.map((popup) => {
+          const age = Date.now() - popup.timestamp;
+          if (age > 600) return null;
+          const laneWidth = 100 / LANES;
+          return (
+            <div
+              key={`sp-${popup.id}-${popup.timestamp}`}
+              className="absolute pointer-events-none z-20 flex items-center justify-center"
+              style={{
+                left: `${popup.lane * laneWidth}%`,
+                width: `${laneWidth}%`,
+                top: "75%",
+                animation: "score-pop 0.6s ease-out forwards",
+              }}
+            >
+              <span
+                className="text-sm font-black font-display tabular-nums"
+                style={{
+                  color: "hsl(48,96%,53%)",
+                  textShadow: "0 0 8px rgba(234,179,8,0.6), 0 2px 4px rgba(0,0,0,0.5)",
+                }}
+              >
+                +{popup.value}
+              </span>
+            </div>
+          );
+        })}
+
         {(gamePhase === "loading" || gamePhase === "ready") && (
           <ReadyOverlay song={song} loadingProgress={loadingProgress} onStart={startGame} />
         )}
