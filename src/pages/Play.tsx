@@ -313,9 +313,12 @@ const Play = () => {
     setCombo(currentCombo);
     setMaxCombo(maxComboRef.current);
     setTotalHits(totalHitsRef.current);
+    const now = Date.now();
     setHitEffects((prev) => [...prev, {
-      id: target.id, lane, y: target.y, label, timestamp: Date.now(),
+      id: target.id, lane, y: target.y, label, timestamp: now,
     }]);
+    // MT3 style: score increment popup near hit zone
+    setScorePopups((prev) => [...prev, { id: target.id, lane, value: scoreGain, timestamp: now }]);
     setRenderTiles([...tilesRef.current]);
   }, [audio, applyHealthChange]);
 
