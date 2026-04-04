@@ -29,14 +29,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
-// Magic Tiles 3 style: Blue → Green → Yellow cycling backgrounds
+// MT3 exact: vibrant Blue → Green → Yellow with soft bokeh feel
 const STAGE_THEMES = [
-  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue
-  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green
-  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow
-  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue again
-  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green again
-  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow again
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue-purple
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue again
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green again
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow again
 ];
 
 const Play = () => {
