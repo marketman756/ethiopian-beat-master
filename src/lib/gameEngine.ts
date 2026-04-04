@@ -52,41 +52,32 @@ export const HEALTH = {
 
 // ─── HIT WINDOWS (inspired by AutoRhythm's tiered judgment) ───
 export const HIT_WINDOWS = {
-  FLAWLESS: 40,   // ±40ms — pixel perfect
   PERFECT: 80,    // ±80ms — very tight
-  GREAT: 130,     // ±130ms — good
-  GOOD: 200,      // ±200ms — acceptable
-  BAD: 300,       // ±300ms — late but counted
+  GREAT: 180,     // ±180ms — good
+  COOL: 300,      // ±300ms — acceptable
 } as const;
 
 export function getHitLabel(deltaMs: number): string {
   const abs = Math.abs(deltaMs);
-  if (abs <= HIT_WINDOWS.FLAWLESS) return "FLAWLESS";
   if (abs <= HIT_WINDOWS.PERFECT) return "PERFECT";
   if (abs <= HIT_WINDOWS.GREAT) return "GREAT";
-  if (abs <= HIT_WINDOWS.GOOD) return "GOOD";
-  return "BAD";
+  return "COOL";
 }
 
 // ─── SCORING (from AutoRhythm: score = base * combo multiplier) ───
 export function getScoreForHit(label: string, combo: number): number {
   const base =
-    label === "FLAWLESS" ? 300 :
-    label === "PERFECT" ? 200 :
-    label === "GREAT" ? 100 :
-    label === "GOOD" ? 50 : 25;
-  // Combo multiplier: 1x at combo 0, up to 4x at combo 100+
+    label === "PERFECT" ? 300 :
+    label === "GREAT" ? 150 : 75;
   const multiplier = 1 + Math.min(combo, 100) * 0.03;
   return Math.round(base * multiplier);
 }
 
 export function getHealthChange(label: string): number {
   switch (label) {
-    case "FLAWLESS": return HEALTH.GAIN_PERFECT;
     case "PERFECT": return HEALTH.GAIN_PERFECT;
     case "GREAT": return HEALTH.GAIN_GREAT;
-    case "GOOD": return HEALTH.GAIN_GOOD;
-    case "BAD": return HEALTH.GAIN_BAD;
+    case "COOL": return HEALTH.GAIN_GOOD;
     default: return -HEALTH.REDUCE_MISS;
   }
 }
