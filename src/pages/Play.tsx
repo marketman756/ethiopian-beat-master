@@ -29,11 +29,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
+// Magic Tiles 3 style: Blue → Green → Yellow cycling backgrounds
 const STAGE_THEMES = [
-  { bg: "linear-gradient(180deg, #0a0a14 0%, #0d1b2a 40%, #1a2e1a 100%)", accent: "rgba(34,197,94,0.08)" },
-  { bg: "linear-gradient(180deg, #1a1408 0%, #2a1f0a 40%, #0d1b2a 100%)", accent: "rgba(234,179,8,0.08)" },
-  { bg: "linear-gradient(180deg, #1a0808 0%, #2a0a0a 40%, #14081e 100%)", accent: "rgba(239,68,68,0.06)" },
-  { bg: "linear-gradient(180deg, #0a0a1e 0%, #1a0a2e 40%, #0a1e2e 100%)", accent: "rgba(139,92,246,0.08)" },
+  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue
+  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green
+  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow
+  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue again
+  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green again
+  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow again
 ];
 
 const Play = () => {
