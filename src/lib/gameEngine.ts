@@ -52,20 +52,16 @@ export const HEALTH = {
 
 // ─── HIT WINDOWS (inspired by AutoRhythm's tiered judgment) ───
 export const HIT_WINDOWS = {
-  FLAWLESS: 40,   // ±40ms — pixel perfect
   PERFECT: 80,    // ±80ms — very tight
-  GREAT: 130,     // ±130ms — good
-  GOOD: 200,      // ±200ms — acceptable
-  BAD: 300,       // ±300ms — late but counted
+  GREAT: 180,     // ±180ms — good
+  COOL: 300,      // ±300ms — acceptable
 } as const;
 
 export function getHitLabel(deltaMs: number): string {
   const abs = Math.abs(deltaMs);
-  if (abs <= HIT_WINDOWS.FLAWLESS) return "FLAWLESS";
   if (abs <= HIT_WINDOWS.PERFECT) return "PERFECT";
   if (abs <= HIT_WINDOWS.GREAT) return "GREAT";
-  if (abs <= HIT_WINDOWS.GOOD) return "GOOD";
-  return "BAD";
+  return "COOL";
 }
 
 // ─── SCORING (from AutoRhythm: score = base * combo multiplier) ───
