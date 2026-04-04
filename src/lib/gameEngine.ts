@@ -67,11 +67,8 @@ export function getHitLabel(deltaMs: number): string {
 // ─── SCORING (from AutoRhythm: score = base * combo multiplier) ───
 export function getScoreForHit(label: string, combo: number): number {
   const base =
-    label === "FLAWLESS" ? 300 :
-    label === "PERFECT" ? 200 :
-    label === "GREAT" ? 100 :
-    label === "GOOD" ? 50 : 25;
-  // Combo multiplier: 1x at combo 0, up to 4x at combo 100+
+    label === "PERFECT" ? 300 :
+    label === "GREAT" ? 150 : 75;
   const multiplier = 1 + Math.min(combo, 100) * 0.03;
   return Math.round(base * multiplier);
 }
