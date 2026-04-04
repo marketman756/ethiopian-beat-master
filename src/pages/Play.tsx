@@ -431,27 +431,14 @@ const Play = () => {
       style={{
         background: stage.bg,
         transition: "background 2s ease",
-        filter: beatFlash ? "brightness(1.3)" : "brightness(1)",
       }}
     >
-      <div className="absolute inset-0 pointer-events-none tibeb-pattern opacity-30" />
-
+      {/* MT3: soft circular bokeh light effects on background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute w-[200%] h-[30%] top-[10%] left-[-50%] rotate-[-12deg] blur-[60px]"
-          style={{ background: stage.accent }}
-        />
-        <div
-          className="absolute w-[200%] h-[15%] top-[55%] left-[-50%] rotate-[8deg] blur-[40px]"
-          style={{ background: stage.accent }}
-        />
+        <div className="absolute w-[300px] h-[300px] rounded-full blur-[100px] top-[5%] left-[10%] opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
+        <div className="absolute w-[200px] h-[200px] rounded-full blur-[80px] top-[40%] right-[5%] opacity-15" style={{ background: "rgba(255,255,255,0.2)" }} />
+        <div className="absolute w-[250px] h-[250px] rounded-full blur-[90px] bottom-[10%] left-[20%] opacity-10" style={{ background: "rgba(255,255,255,0.25)" }} />
       </div>
-
-      {beatFlash && (
-        <div className="absolute inset-0 pointer-events-none z-[2] animate-beat-flash"
-          style={{ background: "radial-gradient(ellipse at center, rgba(234,179,8,0.15), transparent 70%)" }}
-        />
-      )}
 
       {gamePhase === "playing" && (
         <GameHUD
