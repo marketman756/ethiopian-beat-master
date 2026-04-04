@@ -75,11 +75,9 @@ export function getScoreForHit(label: string, combo: number): number {
 
 export function getHealthChange(label: string): number {
   switch (label) {
-    case "FLAWLESS": return HEALTH.GAIN_PERFECT;
     case "PERFECT": return HEALTH.GAIN_PERFECT;
     case "GREAT": return HEALTH.GAIN_GREAT;
-    case "GOOD": return HEALTH.GAIN_GOOD;
-    case "BAD": return HEALTH.GAIN_BAD;
+    case "COOL": return HEALTH.GAIN_GOOD;
     default: return -HEALTH.REDUCE_MISS;
   }
 }
