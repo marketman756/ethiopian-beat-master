@@ -29,11 +29,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
+// Magic Tiles 3 style: Blue → Green → Yellow cycling backgrounds
 const STAGE_THEMES = [
-  { bg: "linear-gradient(180deg, #0a0a14 0%, #0d1b2a 40%, #1a2e1a 100%)", accent: "rgba(34,197,94,0.08)" },
-  { bg: "linear-gradient(180deg, #1a1408 0%, #2a1f0a 40%, #0d1b2a 100%)", accent: "rgba(234,179,8,0.08)" },
-  { bg: "linear-gradient(180deg, #1a0808 0%, #2a0a0a 40%, #14081e 100%)", accent: "rgba(239,68,68,0.06)" },
-  { bg: "linear-gradient(180deg, #0a0a1e 0%, #1a0a2e 40%, #0a1e2e 100%)", accent: "rgba(139,92,246,0.08)" },
+  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue
+  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green
+  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow
+  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue again
+  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green again
+  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow again
 ];
 
 const Play = () => {
@@ -56,6 +59,7 @@ const Play = () => {
 
   const [renderTiles, setRenderTiles] = useState<GameTile[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffect[]>([]);
+  const [scorePopups, setScorePopups] = useState<{ id: number; lane: number; value: number; timestamp: number }[]>([]);
 
   const tileIdRef = useRef(0);
   const animRef = useRef<number>();
@@ -148,9 +152,9 @@ const Play = () => {
     const songTimeMs = audio.getSongTimeMs();
     const beatMs = 60000 / chart.bpm;
 
-    // Stage progression every 32 bars (128 beats)
+    // MT3 style: cycle background every 16 bars (64 beats) for more frequent color shifts
     const currentBeat = Math.floor(songTimeMs / beatMs);
-    if (currentBeat > 0 && currentBeat % 128 === 0 && currentBeat !== beatCountRef.current) {
+    if (currentBeat > 0 && currentBeat % 64 === 0 && currentBeat !== beatCountRef.current) {
       beatCountRef.current = currentBeat;
       setStageIndex((i) => i + 1);
     }
@@ -219,9 +223,13 @@ const Play = () => {
     tilesRef.current = tiles;
     if (changed || spawned.length > 0) setRenderTiles([...tiles]);
 
+    const now = Date.now();
     setHitEffects((prev) => {
-      const now = Date.now();
       const filtered = prev.filter((e) => now - e.timestamp < 500);
+      return filtered.length !== prev.length ? filtered : prev;
+    });
+    setScorePopups((prev) => {
+      const filtered = prev.filter((p) => now - p.timestamp < 600);
       return filtered.length !== prev.length ? filtered : prev;
     });
 
@@ -309,9 +317,12 @@ const Play = () => {
     setCombo(currentCombo);
     setMaxCombo(maxComboRef.current);
     setTotalHits(totalHitsRef.current);
+    const now = Date.now();
     setHitEffects((prev) => [...prev, {
-      id: target.id, lane, y: target.y, label, timestamp: Date.now(),
+      id: target.id, lane, y: target.y, label, timestamp: now,
     }]);
+    // MT3 style: score increment popup near hit zone
+    setScorePopups((prev) => [...prev, { id: target.id, lane, value: scoreGain, timestamp: now }]);
     setRenderTiles([...tilesRef.current]);
   }, [audio, applyHealthChange]);
 
@@ -382,6 +393,7 @@ const Play = () => {
     setTotalHits(0);
     setHealth(HEALTH.INITIAL);
     setHitEffects([]);
+    setScorePopups([]);
     audio.stopPlayback();
   }, [audio]);
 
@@ -460,6 +472,35 @@ const Play = () => {
       <div className="relative flex-1 mx-auto w-full max-w-md overflow-hidden">
         <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} bpm={chart.bpm} fallDurationMs={fallDurationMs} />
         <HitEffects effects={hitEffects} combo={combo} />
+
+        {/* MT3 style: Score increment popups near hit zone */}
+        {scorePopups.map((popup) => {
+          const age = Date.now() - popup.timestamp;
+          if (age > 600) return null;
+          const laneWidth = 100 / LANES;
+          return (
+            <div
+              key={`sp-${popup.id}-${popup.timestamp}`}
+              className="absolute pointer-events-none z-20 flex items-center justify-center"
+              style={{
+                left: `${popup.lane * laneWidth}%`,
+                width: `${laneWidth}%`,
+                top: "75%",
+                animation: "score-pop 0.6s ease-out forwards",
+              }}
+            >
+              <span
+                className="text-sm font-black font-display tabular-nums"
+                style={{
+                  color: "hsl(48,96%,53%)",
+                  textShadow: "0 0 8px rgba(234,179,8,0.6), 0 2px 4px rgba(0,0,0,0.5)",
+                }}
+              >
+                +{popup.value}
+              </span>
+            </div>
+          );
+        })}
 
         {(gamePhase === "loading" || gamePhase === "ready") && (
           <ReadyOverlay song={song} loadingProgress={loadingProgress} onStart={startGame} />
