@@ -29,14 +29,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
-// Magic Tiles 3 style: Blue → Green → Yellow cycling backgrounds
+// MT3 exact: vibrant Blue → Green → Yellow with soft bokeh feel
 const STAGE_THEMES = [
-  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue
-  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green
-  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow
-  { bg: "linear-gradient(180deg, #0a1628 0%, #0d2847 40%, #1a3a6e 100%)", accent: "rgba(59,130,246,0.12)" },   // Blue again
-  { bg: "linear-gradient(180deg, #0a1e12 0%, #0d3a1f 40%, #1a5e2e 100%)", accent: "rgba(34,197,94,0.12)" },    // Green again
-  { bg: "linear-gradient(180deg, #1e1a08 0%, #3a2f0d 40%, #5e4a1a 100%)", accent: "rgba(234,179,8,0.12)" },    // Yellow again
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue-purple
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue again
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green again
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow again
 ];
 
 const Play = () => {
@@ -431,27 +431,14 @@ const Play = () => {
       style={{
         background: stage.bg,
         transition: "background 2s ease",
-        filter: beatFlash ? "brightness(1.3)" : "brightness(1)",
       }}
     >
-      <div className="absolute inset-0 pointer-events-none tibeb-pattern opacity-30" />
-
+      {/* MT3: soft circular bokeh light effects on background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute w-[200%] h-[30%] top-[10%] left-[-50%] rotate-[-12deg] blur-[60px]"
-          style={{ background: stage.accent }}
-        />
-        <div
-          className="absolute w-[200%] h-[15%] top-[55%] left-[-50%] rotate-[8deg] blur-[40px]"
-          style={{ background: stage.accent }}
-        />
+        <div className="absolute w-[300px] h-[300px] rounded-full blur-[100px] top-[5%] left-[10%] opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
+        <div className="absolute w-[200px] h-[200px] rounded-full blur-[80px] top-[40%] right-[5%] opacity-15" style={{ background: "rgba(255,255,255,0.2)" }} />
+        <div className="absolute w-[250px] h-[250px] rounded-full blur-[90px] bottom-[10%] left-[20%] opacity-10" style={{ background: "rgba(255,255,255,0.25)" }} />
       </div>
-
-      {beatFlash && (
-        <div className="absolute inset-0 pointer-events-none z-[2] animate-beat-flash"
-          style={{ background: "radial-gradient(ellipse at center, rgba(234,179,8,0.15), transparent 70%)" }}
-        />
-      )}
 
       {gamePhase === "playing" && (
         <GameHUD
