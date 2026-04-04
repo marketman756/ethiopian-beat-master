@@ -151,9 +151,9 @@ const Play = () => {
     const songTimeMs = audio.getSongTimeMs();
     const beatMs = 60000 / chart.bpm;
 
-    // Stage progression every 32 bars (128 beats)
+    // MT3 style: cycle background every 16 bars (64 beats) for more frequent color shifts
     const currentBeat = Math.floor(songTimeMs / beatMs);
-    if (currentBeat > 0 && currentBeat % 128 === 0 && currentBeat !== beatCountRef.current) {
+    if (currentBeat > 0 && currentBeat % 64 === 0 && currentBeat !== beatCountRef.current) {
       beatCountRef.current = currentBeat;
       setStageIndex((i) => i + 1);
     }
