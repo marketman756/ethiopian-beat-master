@@ -59,6 +59,7 @@ const Play = () => {
 
   const [renderTiles, setRenderTiles] = useState<GameTile[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffect[]>([]);
+  const [scorePopups, setScorePopups] = useState<{ id: number; lane: number; value: number; timestamp: number }[]>([]);
 
   const tileIdRef = useRef(0);
   const animRef = useRef<number>();
