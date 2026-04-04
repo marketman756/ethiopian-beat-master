@@ -223,9 +223,13 @@ const Play = () => {
     tilesRef.current = tiles;
     if (changed || spawned.length > 0) setRenderTiles([...tiles]);
 
+    const now = Date.now();
     setHitEffects((prev) => {
-      const now = Date.now();
       const filtered = prev.filter((e) => now - e.timestamp < 500);
+      return filtered.length !== prev.length ? filtered : prev;
+    });
+    setScorePopups((prev) => {
+      const filtered = prev.filter((p) => now - p.timestamp < 600);
       return filtered.length !== prev.length ? filtered : prev;
     });
 
