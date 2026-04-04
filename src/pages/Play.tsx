@@ -393,6 +393,7 @@ const Play = () => {
     setTotalHits(0);
     setHealth(HEALTH.INITIAL);
     setHitEffects([]);
+    setScorePopups([]);
     audio.stopPlayback();
   }, [audio]);
 
