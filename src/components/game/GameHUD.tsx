@@ -1,5 +1,4 @@
 import { Star, Crown } from "lucide-react";
-import { HEALTH } from "@/lib/gameEngine";
 
 interface GameHUDProps {
   score: number;
@@ -8,10 +7,13 @@ interface GameHUDProps {
   totalNotes: number;
   currentHits: number;
   health: number;
+  /** MT3: time-based progress 0-1 */
+  songProgress: number;
   onBack: () => void;
   onPause: () => void;
 }
 
+// MT3: milestones at fixed progress positions along the song
 const MILESTONES = [
   { position: 0.15, type: "star" as const },
   { position: 0.30, type: "star" as const },
@@ -21,10 +23,8 @@ const MILESTONES = [
   { position: 0.95, type: "crown" as const },
 ];
 
-const MILESTONE_THRESHOLDS = [500, 1500, 3000, 5000, 8000, 12000];
-
-const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, onBack, onPause }: GameHUDProps) => {
-  const progress = Math.min(score / 15000, 1);
+const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, songProgress, onBack, onPause }: GameHUDProps) => {
+  const progress = Math.min(songProgress, 1);
 
   return (
     <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
@@ -51,7 +51,7 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, onBack,
           </div>
           {/* Milestone icons */}
           {MILESTONES.map((m, i) => {
-            const achieved = score >= MILESTONE_THRESHOLDS[i];
+            const achieved = progress >= m.position;
             const Icon = m.type === "star" ? Star : Crown;
             return (
               <div

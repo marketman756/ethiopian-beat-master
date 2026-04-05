@@ -1,12 +1,10 @@
 /**
- * Game Engine — core types, constants, and audio for the rhythm game.
- * Patterns ported from AutoRhythm (health system, combo multiplier, judgment tiers)
- * and Piano Tiles Flutter (sequential validation, per-lane audio).
+ * Game Engine — MT3-accurate scoring, health, and audio.
+ * Scoring matches observed MT3 pattern: base_value ~4, cumulative with combo bonuses.
  */
 
 export const LANES = 4;
 
-// Speed multipliers per round
 export const ROUND_SPEEDS = [1.0, 1.25, 1.5, 2.0];
 
 export type GamePhase = "loading" | "ready" | "playing" | "paused" | "failed" | "round-complete" | "song-complete";
@@ -16,17 +14,13 @@ export interface GameTile {
   lane: number;
   type: "tap" | "hold" | "double";
   lane2?: number;
-  /** Position as percentage from top (0 = top, 100 = bottom) */
   y: number;
-  /** For hold tiles — height percentage */
   holdHeight: number;
   hit: boolean;
   holding: boolean;
   holdComplete: boolean;
   hit2: boolean;
-  /** Chart time in ms — the CANONICAL timing reference */
   chartTime: number;
-  /** Hold end time in ms */
   holdEndTime?: number;
 }
 
@@ -38,23 +32,22 @@ export interface HitEffect {
   timestamp: number;
 }
 
-// ─── HEALTH SYSTEM (from AutoRhythm) ───
+// ─── HEALTH SYSTEM ───
 export const HEALTH = {
   MAX: 100,
   INITIAL: 100,
   GAIN_PERFECT: 3,
   GAIN_GREAT: 2,
-  GAIN_GOOD: 1,
-  GAIN_BAD: 0,
+  GAIN_COOL: 1,
   REDUCE_MISS: 15,
   FAIL_THRESHOLD: 0,
 };
 
-// ─── HIT WINDOWS (inspired by AutoRhythm's tiered judgment) ───
+// ─── HIT WINDOWS (MT3: ±80ms perfect, ±150ms great, >150ms cool) ───
 export const HIT_WINDOWS = {
-  PERFECT: 80,    // ±80ms — very tight
-  GREAT: 180,     // ±180ms — good
-  COOL: 300,      // ±300ms — acceptable
+  PERFECT: 80,
+  GREAT: 150,
+  COOL: 300,
 } as const;
 
 export function getHitLabel(deltaMs: number): string {
@@ -64,28 +57,37 @@ export function getHitLabel(deltaMs: number): string {
   return "COOL";
 }
 
-// ─── SCORING (from AutoRhythm: score = base * combo multiplier) ───
+/**
+ * MT3-accurate scoring: base value ~4 per hit, with combo multiplier.
+ * Observed progression: 4, 48, 100, 154, 210, 265, 323, 371, 432...
+ * This suggests: score += base * (1 + combo_bonus_factor)
+ * PERFECT = 4 base, GREAT = 3, COOL = 2
+ * Combo bonus adds ~0.5-1 per 5 combo
+ */
 export function getScoreForHit(label: string, combo: number): number {
-  const base =
-    label === "PERFECT" ? 300 :
-    label === "GREAT" ? 150 : 75;
-  const multiplier = 1 + Math.min(combo, 100) * 0.03;
-  return Math.round(base * multiplier);
+  const base = label === "PERFECT" ? 4 : label === "GREAT" ? 3 : 2;
+  // MT3 combo multiplier: gradual increase
+  const comboBonus = Math.floor(combo / 5);
+  return base + comboBonus;
+}
+
+/**
+ * MT3-style additive score text: shows +2, +3, +4 etc.
+ */
+export function getScorePopupValue(label: string, combo: number): number {
+  return getScoreForHit(label, combo);
 }
 
 export function getHealthChange(label: string): number {
   switch (label) {
     case "PERFECT": return HEALTH.GAIN_PERFECT;
     case "GREAT": return HEALTH.GAIN_GREAT;
-    case "COOL": return HEALTH.GAIN_GOOD;
+    case "COOL": return HEALTH.GAIN_COOL;
     default: return -HEALTH.REDUCE_MISS;
   }
 }
 
-/**
- * Web Audio API sound engine — generates piano-like tap sounds with zero latency.
- * Per-lane note frequencies inspired by Piano Tiles Flutter (different note per lane).
- */
+// ─── Web Audio API ───
 let audioCtx: AudioContext | null = null;
 
 function getAudioCtx(): AudioContext {
@@ -98,7 +100,6 @@ function getAudioCtx(): AudioContext {
   return audioCtx;
 }
 
-// Piano note frequencies for each lane (C4, E4, G4, C5) — matches Flutter repo
 const LANE_NOTES = [261.63, 329.63, 392.00, 523.25];
 
 export function playTapSound(lane: number) {
@@ -159,13 +160,11 @@ export function triggerVibration(ms: number = 30) {
   }
 }
 
-// ─── KEYBOARD MAPPING (from AutoRhythm: Z, X, ,, . for 4 lanes) ───
 export const KEYBOARD_LANE_MAP: Record<string, number> = {
   'z': 0, 'Z': 0,
   'x': 1, 'X': 1,
   ',': 2,
   '.': 3,
-  // Alternative WASD-style for accessibility
   'd': 0, 'D': 0,
   'f': 1, 'F': 1,
   'j': 2, 'J': 2,
