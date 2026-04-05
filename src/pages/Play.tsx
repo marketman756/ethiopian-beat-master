@@ -29,14 +29,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
   return HIT_ZONE_Y - (timeUntilHit / fallDurationMs) * HIT_ZONE_Y;
 }
 
-// MT3 exact: vibrant Blue → Green → Yellow with soft bokeh feel
+// MT3: vibrant Blue → Green → Yellow cycling backgrounds
 const STAGE_THEMES = [
-  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue-purple
-  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green
-  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow
-  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },  // Blue again
-  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },  // Green again
-  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },  // Yellow again
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },
+  { bg: "linear-gradient(180deg, #1a237e 0%, #283593 30%, #3949ab 60%, #5c6bc0 100%)" },
+  { bg: "linear-gradient(180deg, #1b5e20 0%, #2e7d32 30%, #43a047 60%, #66bb6a 100%)" },
+  { bg: "linear-gradient(180deg, #f57f17 0%, #f9a825 30%, #fbc02d 60%, #fdd835 100%)" },
 ];
 
 const Play = () => {
@@ -56,6 +56,8 @@ const Play = () => {
   const [round, setRound] = useState(0);
   const [stageIndex, setStageIndex] = useState(0);
   const [beatFlash, setBeatFlash] = useState(false);
+  const [songProgress, setSongProgress] = useState(0);
+  const [canRevive, setCanRevive] = useState(true); // MT3: one free revive per attempt
 
   const [renderTiles, setRenderTiles] = useState<GameTile[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffect[]>([]);
@@ -73,11 +75,16 @@ const Play = () => {
   const healthRef = useRef(HEALTH.INITIAL);
   const gamePhaseRef = useRef<GamePhase>("loading");
   const beatCountRef = useRef(0);
+  // Store fail state for revive
+  const failStateRef = useRef<{ songTimeMs: number; chartIndex: number } | null>(null);
 
   useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
 
   const speedMultiplier = ROUND_SPEEDS[Math.min(round, ROUND_SPEEDS.length - 1)];
   const fallDurationMs = chart ? getFallDurationMs(chart.bpm) / speedMultiplier : 2000;
+
+  // Compute total song duration from chart
+  const totalSongDurationMs = chart ? Math.max(...chart.notes.map(n => n.time), 0) + 5000 : 1;
 
   // Loading
   useEffect(() => {
@@ -128,16 +135,20 @@ const Play = () => {
     return newTiles;
   }, [fallDurationMs]);
 
-  // ─── HEALTH CHANGE (from AutoRhythm) ───
+  // Health change
   const applyHealthChange = useCallback((label: string) => {
     const delta = getHealthChange(label);
     healthRef.current = Math.max(0, Math.min(HEALTH.MAX, healthRef.current + delta));
     setHealth(healthRef.current);
 
-    // Game over only when health hits 0
     if (healthRef.current <= HEALTH.FAIL_THRESHOLD) {
       playMissSound();
       triggerVibration(100);
+      // Save state for potential revive
+      failStateRef.current = {
+        songTimeMs: audio.getSongTimeMs(),
+        chartIndex: chartIndexRef.current,
+      };
       audio.stopPlayback();
       setGamePhase("failed");
       return true;
@@ -152,7 +163,10 @@ const Play = () => {
     const songTimeMs = audio.getSongTimeMs();
     const beatMs = 60000 / chart.bpm;
 
-    // MT3 style: cycle background every 16 bars (64 beats) for more frequent color shifts
+    // MT3: time-based song progress
+    setSongProgress(songTimeMs / totalSongDurationMs);
+
+    // MT3: cycle background every 16 bars (64 beats)
     const currentBeat = Math.floor(songTimeMs / beatMs);
     if (currentBeat > 0 && currentBeat % 64 === 0 && currentBeat !== beatCountRef.current) {
       beatCountRef.current = currentBeat;
@@ -180,18 +194,18 @@ const Play = () => {
       return { ...t, y: newY };
     });
 
-    // ─── MISS DETECTION (AutoRhythm style: drain health, don't instant fail) ───
+    // Miss detection — drain health, don't instant fail
     const missedTiles = tiles.filter((t) => !t.hit && !t.holding && t.y > HIT_ZONE_Y + 20);
     if (missedTiles.length > 0) {
       for (const missed of missedTiles) {
-        missed.hit = true; // Mark as processed
-        comboRef.current = 0; // Reset combo on miss (AutoRhythm pattern)
+        missed.hit = true;
+        comboRef.current = 0;
         setCombo(0);
         const failed = applyHealthChange("MISS");
         if (failed) {
           tilesRef.current = tiles;
           setRenderTiles([...tiles]);
-          return; // Stop loop on game over
+          return;
         }
       }
       changed = true;
@@ -234,7 +248,7 @@ const Play = () => {
     });
 
     animRef.current = requestAnimationFrame(gameLoop);
-  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio, applyHealthChange]);
+  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio, applyHealthChange, totalSongDurationMs]);
 
   useEffect(() => {
     if (gamePhase === "playing") {
@@ -243,7 +257,7 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // ─── HIT DETECTION — immediate ref-based, NO wrong-lane fail ───
+  // Hit detection
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
@@ -272,7 +286,7 @@ const Play = () => {
       }
     }
 
-    // No matching tile? Just ignore — NO fail, NO penalty (AutoRhythm style)
+    // No matching tile? Just ignore — NO penalty
     if (!bestTile) return;
 
     const target = bestTile;
@@ -286,9 +300,7 @@ const Play = () => {
     if (currentCombo > maxComboRef.current) maxComboRef.current = currentCombo;
     totalHitsRef.current++;
 
-    // Apply health gain
     applyHealthChange(label);
-
     playTapSound(lane);
     triggerVibration();
 
@@ -321,7 +333,7 @@ const Play = () => {
     setHitEffects((prev) => [...prev, {
       id: target.id, lane, y: target.y, label, timestamp: now,
     }]);
-    // MT3 style: score increment popup near hit zone
+    // MT3: score increment popup (+2, +3, +4)
     setScorePopups((prev) => [...prev, { id: target.id, lane, value: scoreGain, timestamp: now }]);
     setRenderTiles([...tilesRef.current]);
   }, [audio, applyHealthChange]);
@@ -342,14 +354,14 @@ const Play = () => {
     if (updated) setRenderTiles([...tilesRef.current]);
   }, []);
 
-  // ─── KEYBOARD CONTROLS (from AutoRhythm: Z, X, ,, . for 4 lanes) ───
+  // Keyboard controls
   useEffect(() => {
     if (gamePhase !== "playing") return;
 
     const pressedKeys = new Set<string>();
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (pressedKeys.has(e.key)) return; // Prevent key repeat
+      if (pressedKeys.has(e.key)) return;
       pressedKeys.add(e.key);
       const lane = KEYBOARD_LANE_MAP[e.key];
       if (lane !== undefined) {
@@ -386,6 +398,7 @@ const Play = () => {
     chartIndexRef.current = 0;
     beatCountRef.current = 0;
     holdingLanesRef.current.clear();
+    failStateRef.current = null;
     setRenderTiles([]);
     setScore(0);
     setCombo(0);
@@ -394,6 +407,7 @@ const Play = () => {
     setHealth(HEALTH.INITIAL);
     setHitEffects([]);
     setScorePopups([]);
+    setSongProgress(0);
     audio.stopPlayback();
   }, [audio]);
 
@@ -402,9 +416,28 @@ const Play = () => {
     setRound(0);
     setStageIndex(0);
     setBeatFlash(false);
+    setCanRevive(true);
     audio.startPlayback(LEAD_IN_MS, ROUND_SPEEDS[0]);
     setGamePhase("playing");
   }, [resetGame, audio]);
+
+  // MT3: Revive — restore health and continue from where player failed
+  const handleRevive = useCallback(() => {
+    if (!failStateRef.current) return;
+    healthRef.current = HEALTH.MAX;
+    setHealth(HEALTH.MAX);
+    comboRef.current = 0;
+    setCombo(0);
+    setCanRevive(false); // Only one revive per attempt
+    
+    // Clear missed tiles and resume
+    tilesRef.current = tilesRef.current.filter(t => !t.hit || t.type === "hold");
+    setRenderTiles([...tilesRef.current]);
+    
+    // Resume audio from fail point
+    audio.startPlayback(0, speedMultiplier);
+    setGamePhase("playing");
+  }, [audio, speedMultiplier]);
 
   const startNextRound = useCallback(() => {
     const nextRound = round + 1;
@@ -433,7 +466,7 @@ const Play = () => {
         transition: "background 2s ease",
       }}
     >
-      {/* MT3: soft circular bokeh light effects on background */}
+      {/* MT3: soft circular bokeh light effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[300px] h-[300px] rounded-full blur-[100px] top-[5%] left-[10%] opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
         <div className="absolute w-[200px] h-[200px] rounded-full blur-[80px] top-[40%] right-[5%] opacity-15" style={{ background: "rgba(255,255,255,0.2)" }} />
@@ -448,6 +481,7 @@ const Play = () => {
           totalNotes={chart.notes.length}
           currentHits={totalHits}
           health={health}
+          songProgress={songProgress}
           onBack={() => navigate(-1)}
           onPause={() => {
             setGamePhase("paused");
@@ -460,7 +494,7 @@ const Play = () => {
         <GameLanes tiles={renderTiles} onLaneTap={handleLaneTap} onLaneRelease={handleLaneRelease} bpm={chart.bpm} fallDurationMs={fallDurationMs} />
         <HitEffects effects={hitEffects} combo={combo} />
 
-        {/* MT3 style: Score increment popups near hit zone */}
+        {/* MT3: Score increment popups (+2, +3, +4) near hit zone */}
         {scorePopups.map((popup) => {
           const age = Date.now() - popup.timestamp;
           if (age > 600) return null;
@@ -479,8 +513,8 @@ const Play = () => {
               <span
                 className="text-sm font-black font-display tabular-nums"
                 style={{
-                  color: "hsl(48,96%,53%)",
-                  textShadow: "0 0 8px rgba(234,179,8,0.6), 0 2px 4px rgba(0,0,0,0.5)",
+                  color: "#fbc02d",
+                  textShadow: "0 0 8px rgba(251,192,45,0.6), 0 2px 4px rgba(0,0,0,0.5)",
                 }}
               >
                 +{popup.value}
@@ -502,7 +536,16 @@ const Play = () => {
           />
         )}
         {gamePhase === "failed" && (
-          <FailOverlay song={song} score={score} maxCombo={maxCombo} round={round} onRetry={startGame} onQuit={() => navigate("/library")} />
+          <FailOverlay
+            song={song}
+            score={score}
+            maxCombo={maxCombo}
+            round={round}
+            canRevive={canRevive}
+            onRevive={handleRevive}
+            onRetry={startGame}
+            onQuit={() => navigate("/library")}
+          />
         )}
         {gamePhase === "round-complete" && (
           <RoundCompleteOverlay round={round} score={score} onNextRound={startNextRound} />
