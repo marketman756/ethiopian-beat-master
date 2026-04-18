@@ -43,14 +43,19 @@ export const HEALTH = {
   FAIL_THRESHOLD: 0,
 };
 
-// ─── HIT WINDOWS (MT3: ±80ms perfect, ±150ms great, >150ms cool) ───
+// ─── HIT WINDOWS ─────────────────────────────────────────────────────────
+// MT3-aligned, slightly more forgiving on COOL so casual taps still register.
+// Anything beyond MAX_REGISTRABLE is treated as "no tile here" (no penalty).
 export const HIT_WINDOWS = {
-  PERFECT: 80,
-  GREAT: 150,
-  COOL: 300,
+  PERFECT: 90,
+  GREAT: 170,
+  COOL: 260,
+  MAX_REGISTRABLE: 320,
 } as const;
 
-export function getHitLabel(deltaMs: number): string {
+export type HitLabel = "PERFECT" | "GREAT" | "COOL";
+
+export function getHitLabel(deltaMs: number): HitLabel {
   const abs = Math.abs(deltaMs);
   if (abs <= HIT_WINDOWS.PERFECT) return "PERFECT";
   if (abs <= HIT_WINDOWS.GREAT) return "GREAT";

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { songs } from "@/lib/songs";
 import { getChartForSong, ChartNote } from "@/lib/tileCharts";
 import {
-  LANES, ROUND_SPEEDS, GamePhase, GameTile, HitEffect, HEALTH,
+  LANES, ROUND_SPEEDS, GamePhase, GameTile, HitEffect, HEALTH, HIT_WINDOWS,
   getHitLabel, getScoreForHit, getHealthChange, playTapSound, playMissSound,
   triggerVibration, KEYBOARD_LANE_MAP,
 } from "@/lib/gameEngine";
@@ -75,6 +75,7 @@ const Play = () => {
   const healthRef = useRef(HEALTH.INITIAL);
   const gamePhaseRef = useRef<GamePhase>("loading");
   const beatCountRef = useRef(0);
+  const beatFlashRef = useRef(false);
   // Store fail state for revive
   const failStateRef = useRef<{ songTimeMs: number; chartIndex: number } | null>(null);
 
@@ -173,10 +174,12 @@ const Play = () => {
       setStageIndex((i) => i + 1);
     }
 
-    // Beat-drop flash every 4 beats
-    if (currentBeat > 0 && currentBeat % 4 === 0 && Math.floor(songTimeMs / beatMs) !== Math.floor((songTimeMs - 16) / beatMs)) {
-      setBeatFlash(true);
-      setTimeout(() => setBeatFlash(false), 120);
+    // Beat-drop flash every 4 beats — derive directly from beat index, no setTimeout.
+    const beatPhase = (songTimeMs / beatMs) % 4;
+    const flashOn = beatPhase < 0.15 && beatPhase >= 0;
+    if (flashOn !== beatFlashRef.current) {
+      beatFlashRef.current = flashOn;
+      setBeatFlash(flashOn);
     }
 
     let tiles = tilesRef.current;
@@ -237,7 +240,8 @@ const Play = () => {
     tilesRef.current = tiles;
     if (changed || spawned.length > 0) setRenderTiles([...tiles]);
 
-    const now = Date.now();
+    // GC short-lived FX — only re-render the lists when something actually expires.
+    const now = performance.now();
     setHitEffects((prev) => {
       const filtered = prev.filter((e) => now - e.timestamp < 500);
       return filtered.length !== prev.length ? filtered : prev;
@@ -248,7 +252,7 @@ const Play = () => {
     });
 
     animRef.current = requestAnimationFrame(gameLoop);
-  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio, applyHealthChange, totalSongDurationMs]);
+  }, [chart, fallDurationMs, spawnTiles, round, audio, applyHealthChange, totalSongDurationMs]);
 
   useEffect(() => {
     if (gamePhase === "playing") {
@@ -257,36 +261,36 @@ const Play = () => {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [gamePhase, gameLoop]);
 
-  // Hit detection
+  // Hit detection — pure timing-based, lane-aware, NO wrong-lane penalty.
   const handleLaneTap = useCallback((lane: number) => {
     if (gamePhaseRef.current !== "playing") return;
     const songTimeMs = audio.getSongTimeMs();
 
+    // Track lane-down for hold tiles (idempotent).
     holdingLanesRef.current.add(lane);
 
     const tiles = tilesRef.current;
-    const HIT_WINDOW_MS = 400;
     let bestTile: GameTile | null = null;
-    let bestDist = Infinity;
+    let bestAbsDelta = Infinity;
 
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i];
-      if (t.hit || t.holding) continue;
-      const inLane = t.lane === lane || (t.type === "double" && t.lane2 === lane);
+      if (t.hit && t.type !== "double") continue;
+      if (t.type === "hold" && t.holding) continue;
+
+      const inLane =
+        t.lane === lane ||
+        (t.type === "double" && t.lane2 === lane && !t.hit2);
       if (!inLane) continue;
 
-      const timeDelta = Math.abs(t.chartTime - songTimeMs);
-      const visuallyNear = t.y >= 40 && t.y <= 105;
-
-      if (timeDelta <= HIT_WINDOW_MS || visuallyNear) {
-        if (timeDelta < bestDist) {
-          bestDist = timeDelta;
-          bestTile = t;
-        }
+      const absDelta = Math.abs(t.chartTime - songTimeMs);
+      if (absDelta <= HIT_WINDOWS.MAX_REGISTRABLE && absDelta < bestAbsDelta) {
+        bestAbsDelta = absDelta;
+        bestTile = t;
       }
     }
 
-    // No matching tile? Just ignore — NO penalty
+    // No tile in window? Silently ignore. Free taps are forgiven.
     if (!bestTile) return;
 
     const target = bestTile;
@@ -304,7 +308,7 @@ const Play = () => {
     playTapSound(lane);
     triggerVibration();
 
-    // Mutate ref directly for instant resolution
+    // Mutate ref directly for instant resolution.
     for (let i = 0; i < tilesRef.current.length; i++) {
       const t = tilesRef.current[i];
       if (t.id !== target.id) continue;
@@ -314,10 +318,15 @@ const Play = () => {
       } else if (t.type === "double") {
         const hitPrimary = t.lane === lane ? true : t.hit;
         const hitSecond = t.lane2 === lane ? true : t.hit2;
-        if (hitPrimary && hitSecond) {
-          tilesRef.current[i] = { ...t, hit: true, hit2: true };
-        } else {
-          tilesRef.current[i] = { ...t, hit: hitPrimary, hit2: hitSecond };
+        tilesRef.current[i] = {
+          ...t,
+          hit: hitPrimary && hitSecond,
+          hit2: hitSecond,
+        };
+        // Ensure single-lane tap on a double doesn't immediately disappear.
+        if (!(hitPrimary && hitSecond)) {
+          tilesRef.current[i] = { ...t, hit: false, hit2: hitSecond };
+          if (hitPrimary) tilesRef.current[i] = { ...tilesRef.current[i], hit: true };
         }
       } else {
         tilesRef.current[i] = { ...t, hit: true };
@@ -329,11 +338,10 @@ const Play = () => {
     setCombo(currentCombo);
     setMaxCombo(maxComboRef.current);
     setTotalHits(totalHitsRef.current);
-    const now = Date.now();
+    const now = performance.now();
     setHitEffects((prev) => [...prev, {
       id: target.id, lane, y: target.y, label, timestamp: now,
     }]);
-    // MT3: score increment popup (+2, +3, +4)
     setScorePopups((prev) => [...prev, { id: target.id, lane, value: scoreGain, timestamp: now }]);
     setRenderTiles([...tilesRef.current]);
   }, [audio, applyHealthChange]);
@@ -496,7 +504,7 @@ const Play = () => {
 
         {/* MT3: Score increment popups (+2, +3, +4) near hit zone */}
         {scorePopups.map((popup) => {
-          const age = Date.now() - popup.timestamp;
+          const age = performance.now() - popup.timestamp;
           if (age > 600) return null;
           const laneWidth = 100 / LANES;
           return (
