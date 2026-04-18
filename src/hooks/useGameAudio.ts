@@ -3,6 +3,7 @@
  * Uses AudioContext.currentTime as the master clock for drift-free sync.
  */
 import { useRef, useCallback, useEffect } from "react";
+import { getCalibrationOffset } from "@/lib/calibration";
 
 interface GameAudioState {
   /** Load an audio file into an AudioBuffer */
@@ -112,9 +113,14 @@ export function useGameAudio(): GameAudioState {
   }, [getCtx]);
 
   const getSongTimeMs = useCallback((): number => {
-    if (pausedSongTimeRef.current !== null) return pausedSongTimeRef.current;
+    // Apply calibration offset: positive offset means audio is perceived later
+    // than visuals, so we shift the reported song time forward to compensate.
+    const offset = getCalibrationOffset();
+    if (pausedSongTimeRef.current !== null) {
+      return pausedSongTimeRef.current + offset;
+    }
     const ctx = getCtx();
-    return (ctx.currentTime - songStartCtxTimeRef.current) * 1000;
+    return (ctx.currentTime - songStartCtxTimeRef.current) * 1000 + offset;
   }, [getCtx]);
 
   const isLoaded = useCallback(() => bufferRef.current !== null, []);
