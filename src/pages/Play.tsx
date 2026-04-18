@@ -75,6 +75,7 @@ const Play = () => {
   const healthRef = useRef(HEALTH.INITIAL);
   const gamePhaseRef = useRef<GamePhase>("loading");
   const beatCountRef = useRef(0);
+  const beatFlashRef = useRef(false);
   // Store fail state for revive
   const failStateRef = useRef<{ songTimeMs: number; chartIndex: number } | null>(null);
 
