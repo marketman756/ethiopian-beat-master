@@ -89,23 +89,62 @@ interface PauseOverlayProps {
   onQuit: () => void;
 }
 
-export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => (
-  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/80 backdrop-blur-sm z-30">
-    <span className="text-xs font-display font-bold tracking-[0.3em] uppercase" style={{ color: "#fbc02d" }}>
-      Ethio-Tiles
-    </span>
-    <h2 className="text-2xl font-bold text-white">Paused</h2>
-    <div className="flex gap-3">
-      <Button onClick={onResume} className="gap-2 bg-white text-gray-900 hover:bg-white/90 rounded-full px-6 font-bold active:scale-95 transition-transform">
-        <PlayIcon className="h-4 w-4" />
-        Resume
-      </Button>
-      <Button variant="outline" onClick={onQuit} className="text-white border-white/30 hover:bg-white/10 rounded-full px-6">
-        Quit
-      </Button>
+export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => {
+  const [offset, setOffset] = useState<number>(() => getCalibrationOffset());
+
+  // Persist on every change (cheap; localStorage is sync but tiny payload).
+  useEffect(() => {
+    setCalibrationOffset(offset);
+  }, [offset]);
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/80 backdrop-blur-sm z-30 px-6">
+      <span className="text-xs font-display font-bold tracking-[0.3em] uppercase" style={{ color: "#fbc02d" }}>
+        Ethio-Tiles
+      </span>
+      <h2 className="text-2xl font-bold text-white">Paused</h2>
+
+      {/* Audio/visual calibration */}
+      <div className="w-full max-w-xs flex flex-col gap-2 bg-white/5 rounded-2xl p-4 border border-white/10">
+        <div className="flex items-center justify-between text-white/80 text-xs font-semibold">
+          <span>Audio Offset</span>
+          <span className="tabular-nums" style={{ color: offset === 0 ? "rgba(255,255,255,0.6)" : "#fbc02d" }}>
+            {offset > 0 ? "+" : ""}{offset} ms
+          </span>
+        </div>
+        <Slider
+          value={[offset]}
+          min={CALIBRATION_RANGE.min}
+          max={CALIBRATION_RANGE.max}
+          step={5}
+          onValueChange={(v) => setOffset(v[0] ?? 0)}
+        />
+        <p className="text-[10px] text-white/40 leading-snug">
+          If hits feel late, increase. If they feel early, decrease.
+        </p>
+        {offset !== 0 && (
+          <button
+            type="button"
+            onClick={() => setOffset(0)}
+            className="text-[10px] text-white/50 hover:text-white underline self-end"
+          >
+            Reset to 0
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <Button onClick={onResume} className="gap-2 bg-white text-gray-900 hover:bg-white/90 rounded-full px-6 font-bold active:scale-95 transition-transform">
+          <PlayIcon className="h-4 w-4" />
+          Resume
+        </Button>
+        <Button variant="outline" onClick={onQuit} className="text-white border-white/30 hover:bg-white/10 rounded-full px-6">
+          Quit
+        </Button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── FAIL OVERLAY (MT3: with revive option) ───
 interface FailOverlayProps {
