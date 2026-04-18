@@ -1,7 +1,14 @@
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart } from "lucide-react";
 import { ROUND_SPEEDS } from "@/lib/gameEngine";
 import { Song } from "@/lib/songs";
+import { useEffect, useState } from "react";
+import {
+  CALIBRATION_RANGE,
+  getCalibrationOffset,
+  setCalibrationOffset,
+} from "@/lib/calibration";
 
 // ─── READY OVERLAY (MT3: clean gradient, no tibeb) ───
 interface ReadyOverlayProps {

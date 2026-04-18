@@ -10,7 +10,7 @@ const HitEffects = memo(({ effects, combo }: HitEffectsProps) => {
   return (
     <>
       {effects.map((effect) => {
-        const age = Date.now() - effect.timestamp;
+        const age = performance.now() - effect.timestamp;
         if (age > 500) return null;
 
         return (

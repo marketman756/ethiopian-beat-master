@@ -504,7 +504,7 @@ const Play = () => {
 
         {/* MT3: Score increment popups (+2, +3, +4) near hit zone */}
         {scorePopups.map((popup) => {
-          const age = Date.now() - popup.timestamp;
+          const age = performance.now() - popup.timestamp;
           if (age > 600) return null;
           const laneWidth = 100 / LANES;
           return (
