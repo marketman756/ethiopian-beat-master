@@ -173,10 +173,12 @@ const Play = () => {
       setStageIndex((i) => i + 1);
     }
 
-    // Beat-drop flash every 4 beats
-    if (currentBeat > 0 && currentBeat % 4 === 0 && Math.floor(songTimeMs / beatMs) !== Math.floor((songTimeMs - 16) / beatMs)) {
-      setBeatFlash(true);
-      setTimeout(() => setBeatFlash(false), 120);
+    // Beat-drop flash every 4 beats — derive directly from beat index, no setTimeout.
+    const beatPhase = (songTimeMs / beatMs) % 4;
+    const flashOn = beatPhase < 0.15 && beatPhase >= 0;
+    if (flashOn !== beatFlashRef.current) {
+      beatFlashRef.current = flashOn;
+      setBeatFlash(flashOn);
     }
 
     let tiles = tilesRef.current;
@@ -237,7 +239,8 @@ const Play = () => {
     tilesRef.current = tiles;
     if (changed || spawned.length > 0) setRenderTiles([...tiles]);
 
-    const now = Date.now();
+    // GC short-lived FX — only re-render the lists when something actually expires.
+    const now = performance.now();
     setHitEffects((prev) => {
       const filtered = prev.filter((e) => now - e.timestamp < 500);
       return filtered.length !== prev.length ? filtered : prev;
@@ -248,7 +251,7 @@ const Play = () => {
     });
 
     animRef.current = requestAnimationFrame(gameLoop);
-  }, [chart, speedMultiplier, fallDurationMs, spawnTiles, round, audio, applyHealthChange, totalSongDurationMs]);
+  }, [chart, fallDurationMs, spawnTiles, round, audio, applyHealthChange, totalSongDurationMs]);
 
   useEffect(() => {
     if (gamePhase === "playing") {
