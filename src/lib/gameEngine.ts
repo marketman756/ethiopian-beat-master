@@ -7,6 +7,49 @@ export const LANES = 4;
 
 export const ROUND_SPEEDS = [1.0, 1.25, 1.5, 2.0];
 
+/**
+ * Dynamic speed multiplier as a function of stars earned in the current run.
+ * Spec: v_final = BPM × m(stars).  Smooth, non-jarring acceleration.
+ */
+export const STAR_SPEED_MULTIPLIERS: Record<0 | 1 | 2 | 3, number> = {
+  0: 1.00,
+  1: 1.15,
+  2: 1.30,
+  3: 1.50,
+};
+
+export function getSpeedMultiplier(stars: 0 | 1 | 2 | 3): number {
+  return STAR_SPEED_MULTIPLIERS[stars];
+}
+
+/**
+ * Star thresholds along song progress (0..1). Crossing each threshold
+ * earns a star and bumps the speed multiplier.
+ */
+export const STAR_PROGRESS_THRESHOLDS = [0.33, 0.66, 1.0] as const;
+
+/** Linear interpolation helper, clamped to [0,1] on `t`. */
+export function lerp(a: number, b: number, t: number): number {
+  const c = Math.max(0, Math.min(1, t));
+  return a + (b - a) * c;
+}
+
+/**
+ * Long-press release scoring windows (ms from intended hold-end time).
+ * Early release (large negative delta beyond GREAT) breaks combo.
+ */
+export const RELEASE_WINDOWS = {
+  PERFECT: 80,
+  GREAT: 160,
+} as const;
+
+export function getReleaseLabel(deltaMs: number): "PERFECT" | "GREAT" | "EARLY" {
+  const abs = Math.abs(deltaMs);
+  if (abs <= RELEASE_WINDOWS.PERFECT) return "PERFECT";
+  if (abs <= RELEASE_WINDOWS.GREAT) return "GREAT";
+  return "EARLY";
+}
+
 export type GamePhase = "loading" | "ready" | "playing" | "paused" | "failed" | "round-complete" | "song-complete";
 
 export interface GameTile {
