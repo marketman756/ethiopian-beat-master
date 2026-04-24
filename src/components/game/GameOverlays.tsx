@@ -4,7 +4,7 @@ import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart } from "lucide-rea
 import { ROUND_SPEEDS } from "@/lib/gameEngine";
 import { Song } from "@/lib/songs";
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   CALIBRATION_RANGE,
   getCalibrationOffset,
