@@ -22,6 +22,27 @@ export interface TileChart {
 }
 
 /**
+ * External JSON beat-map shape (spec §3 — "Offset Map").
+ * Note types are normalized to internal TileType on load.
+ */
+interface JsonChartNote {
+  time: number;     // SECONDS in the spec's example, but we accept ms or s
+  lane: number;
+  type: "single" | "long" | "double" | "tap" | "hold";
+  duration?: number;
+  lane2?: number;
+}
+
+interface JsonChart {
+  songId: string;
+  bpm: number;
+  audioUrl?: string;
+  notes: JsonChartNote[];
+  /** "ms" (default) or "s" — controls how `time` and `duration` are interpreted. */
+  timeUnit?: "ms" | "s";
+}
+
+/**
  * Generate a TRULY CONTINUOUS chart where every tile flows into the next.
  * Key rule: each new tile MUST be on a DIFFERENT lane than the previous one.
  * Tiles are placed on every beat subdivision with zero gaps.
@@ -115,4 +136,54 @@ export const tileCharts: TileChart[] = [
 
 export function getChartForSong(songId: string): TileChart | undefined {
   return tileCharts.find((c) => c.songId === songId);
+}
+
+/**
+ * Async loader: tries `/charts/{songId}.json` first, falls back to the
+ * procedural chart bundled in `tileCharts`. Always resolves to a valid
+ * chart if `songId` is known to either source.
+ */
+export async function loadChart(songId: string): Promise<TileChart | undefined> {
+  const fallback = getChartForSong(songId);
+  try {
+    const res = await fetch(`/charts/${songId}.json`, { cache: "force-cache" });
+    if (!res.ok) return fallback;
+    const json = (await res.json()) as JsonChart;
+    return normalizeJsonChart(json, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeJsonChart(json: JsonChart, fallback?: TileChart): TileChart {
+  const unit = json.timeUnit ?? "ms";
+  const scale = unit === "s" ? 1000 : 1;
+
+  const notes: ChartNote[] = json.notes
+    .map((n) => {
+      const type: TileType =
+        n.type === "single" || n.type === "tap" ? "tap" :
+        n.type === "long" || n.type === "hold" ? "hold" :
+        "double";
+      const note: ChartNote = {
+        time: Math.round(n.time * scale),
+        lane: n.lane,
+        type,
+      };
+      if (type === "hold" && n.duration !== undefined) {
+        note.holdDuration = Math.round(n.duration * scale);
+      }
+      if (type === "double" && n.lane2 !== undefined) {
+        note.lane2 = n.lane2;
+      }
+      return note;
+    })
+    .sort((a, b) => a.time - b.time);
+
+  return {
+    songId: json.songId,
+    bpm: json.bpm,
+    audioUrl: json.audioUrl ?? fallback?.audioUrl,
+    notes,
+  };
 }
