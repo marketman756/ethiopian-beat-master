@@ -15,12 +15,9 @@ interface GameHUDProps {
 
 // MT3: milestones at fixed progress positions along the song
 const MILESTONES = [
-  { position: 0.15, type: "star" as const },
-  { position: 0.30, type: "star" as const },
-  { position: 0.50, type: "star" as const },
-  { position: 0.65, type: "crown" as const },
-  { position: 0.80, type: "crown" as const },
-  { position: 0.95, type: "crown" as const },
+  { position: 0.33, type: "star" as const },
+  { position: 0.66, type: "star" as const },
+  { position: 1.00, type: "crown" as const },
 ];
 
 const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, songProgress, onBack, onPause }: GameHUDProps) => {
@@ -38,8 +35,8 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, songPro
             className="absolute left-3 h-[3px] top-1/2 -translate-y-1/2 rounded-full transition-all duration-300"
             style={{
               width: `${progress * (100 - 6)}%`,
-              background: "#fbc02d",
-              boxShadow: "0 0 6px rgba(251,192,45,0.5)",
+              background: "linear-gradient(90deg, #00f2ff, #ff007a)",
+              boxShadow: "0 0 8px rgba(0,242,255,0.55)",
             }}
           />
           {/* Diamond marker */}
@@ -63,7 +60,11 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, songPro
                   className={`h-4 w-4 transition-all duration-300 ${
                     achieved ? "scale-110" : "text-white/25"
                   }`}
-                  style={achieved ? { color: "#fbc02d", fill: "#fbc02d" } : undefined}
+                  style={
+                    achieved
+                      ? { color: "#00f2ff", fill: "#00f2ff", filter: "drop-shadow(0 0 6px #00f2ff)" }
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -71,18 +72,19 @@ const GameHUD = ({ score, combo, round, totalNotes, currentHits, health, songPro
         </div>
       </div>
 
-      {/* MT3: Large centered score */}
+      {/* Large centered score — JetBrains Mono for stable width */}
       <div className="flex flex-col items-center mx-auto max-w-md mt-1">
         <span
-          className="text-[42px] font-black text-white tabular-nums leading-none"
-          style={{ textShadow: "0 2px 12px rgba(0,0,0,0.4)" }}
+          className="text-[42px] font-black text-white font-mono-game neon-glow-cyan leading-none"
         >
           {score}
         </span>
-        {/* MT3: PERFECT ×N combo display */}
         {combo > 1 && (
           <span
-            className="text-sm font-bold tabular-nums mt-0.5 text-white/70"
+            className={`text-sm font-bold font-mono-game mt-0.5 ${
+              combo > 25 ? "text-[#ffd700]" : "text-white/80"
+            }`}
+            style={combo > 25 ? { textShadow: "0 0 10px rgba(255,215,0,0.6)" } : undefined}
           >
             ×{combo}
           </span>
