@@ -19,8 +19,12 @@ export interface CanvasGameHandle {
     beatPhase: number;
     tileHeightFrac: number;
     starsEarned: 0 | 1 | 2 | 3;
+    songProgress?: number;
   }) => void;
   flashLane: (lane: number) => void;
+  spawnParticles: (lane: number) => void;
+  triggerMissFlash: () => void;
+  triggerSpeedUp: () => void;
 }
 
 interface CanvasGameProps {
@@ -41,6 +45,7 @@ const CanvasGame = memo(({ onLaneTap, onLaneRelease, active, registerHandle }: C
     beatPhase: 0,
     tileHeightFrac: 0.05,
     starsEarned: 0 as 0 | 1 | 2 | 3,
+    songProgress: 0,
   });
   const laneFlashRef = useRef<number[]>([0, 0, 0, 0]);
   const rafRef = useRef<number>();
@@ -55,9 +60,9 @@ const CanvasGame = memo(({ onLaneTap, onLaneRelease, active, registerHandle }: C
     rendererRef.current = renderer;
 
     const loop = () => {
-      // Decay lane flashes regardless of active — keeps them from getting stuck
+      // Decay lane flashes: 200ms ease-out (peak→0 over ~12 frames at 60fps)
       for (let i = 0; i < LANES; i++) {
-        laneFlashRef.current[i] = Math.max(0, laneFlashRef.current[i] - 0.06);
+        laneFlashRef.current[i] = Math.max(0, laneFlashRef.current[i] * 0.88);
       }
       renderer.render({ ...stateRef.current, laneFlash: laneFlashRef.current });
       rafRef.current = requestAnimationFrame(loop);
@@ -77,6 +82,15 @@ const CanvasGame = memo(({ onLaneTap, onLaneRelease, active, registerHandle }: C
       setRenderState: (s) => { stateRef.current = s; },
       flashLane: (lane) => {
         if (lane >= 0 && lane < LANES) laneFlashRef.current[lane] = 1;
+      },
+      spawnParticles: (lane) => {
+        rendererRef.current?.spawnParticles(lane);
+      },
+      triggerMissFlash: () => {
+        rendererRef.current?.triggerMissFlash();
+      },
+      triggerSpeedUp: () => {
+        rendererRef.current?.triggerSpeedUp();
       },
     });
   }, [registerHandle]);

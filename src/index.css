@@ -77,7 +77,7 @@
   }
   .neon-bg-game {
     background:
-      radial-gradient(ellipse at 50% 30%, #15052a 0%, #0a0118 45%, #000000 100%);
+      linear-gradient(135deg, #4a9eff 0%, #a855f7 50%, #ec4899 100%);
   }
   .neon-border {
     box-shadow:

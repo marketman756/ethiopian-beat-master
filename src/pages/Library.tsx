@@ -20,7 +20,7 @@ const Library = () => {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-indigo-950 via-purple-950 to-gray-950">
+    <div className="min-h-screen flex flex-col" style={{ background: "linear-gradient(180deg, #1a0533 0%, #0d0d2b 50%, #0a0a1a 100%)" }}>
       <Navbar variant="dark" />
       <main className="flex-1 container py-8 px-4">
         {/* Search bar */}

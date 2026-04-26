@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart } from "lucide-react";
+import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart, Crown } from "lucide-react";
 import { ROUND_SPEEDS } from "@/lib/gameEngine";
 import { Song } from "@/lib/songs";
 import { useEffect, useRef, useState } from "react";
@@ -153,7 +153,11 @@ export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => {
           <PlayIcon className="h-4 w-4" />
           Resume
         </Button>
-        <Button variant="outline" onClick={onQuit} className="text-white border-white/30 hover:bg-white/10 rounded-full px-6">
+        <Button
+          variant="ghost"
+          onClick={onQuit}
+          className="text-white/80 hover:text-white border border-white/20 hover:bg-white/10 rounded-full px-6 transition-colors"
+        >
           Quit
         </Button>
       </div>
@@ -209,10 +213,10 @@ export const FailOverlay = ({ song, score, maxCombo, round, canRevive, onRevive,
             Retry
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="lg"
             onClick={onQuit}
-            className="text-white border-white/30 hover:bg-white/10 rounded-full px-8"
+            className="text-white/80 hover:text-white border border-white/20 hover:bg-white/10 rounded-full px-8 transition-colors"
           >
             Back
           </Button>
@@ -325,75 +329,136 @@ export const RoundCompleteOverlay = ({ round, score, onNextRound }: RoundComplet
   </motion.div>
 );
 
-// ─── SONG COMPLETE (MT3: star ratings based on accuracy, clean look) ───
+// ─── SONG COMPLETE (MT3: star ratings + accuracy breakdown) ───
 interface SongCompleteOverlayProps {
   song: Song;
   score: number;
   maxCombo: number;
   totalHits: number;
   totalNotes: number;
+  perfects: number;
+  greats: number;
+  cools: number;
   onRetry: () => void;
   onQuit: () => void;
 }
 
-export const SongCompleteOverlay = ({ song, score, maxCombo, totalHits, totalNotes, onRetry, onQuit }: SongCompleteOverlayProps) => {
+export const SongCompleteOverlay = ({ song, score, maxCombo, totalHits, totalNotes, perfects, greats, cools, onRetry, onQuit }: SongCompleteOverlayProps) => {
   const accuracy = totalNotes > 0 ? Math.round((totalHits / totalNotes) * 100) : 0;
   const stars = accuracy > 95 ? 3 : accuracy > 80 ? 2 : accuracy > 50 ? 1 : 0;
+
+  // Compute splendid/rating label (MT3-style)
+  const ratingLabel = accuracy > 95 ? "SPLENDID" : accuracy > 80 ? "GREAT JOB" : accuracy > 50 ? "GOOD" : "TRY AGAIN";
+
+  // Save high score to localStorage
+  useEffect(() => {
+    const key = `ethio-tiles-highscore-${song.id}`;
+    const prev = JSON.parse(localStorage.getItem(key) || "{}");
+    if (!prev.score || score > prev.score) {
+      localStorage.setItem(key, JSON.stringify({ score, stars, maxCombo, accuracy }));
+    }
+  }, [song.id, score, stars, maxCombo, accuracy]);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.25 }}
-      className="absolute inset-0 flex flex-col items-center justify-center z-30 neon-bg-game"
+      transition={{ duration: 0.4 }}
+      className="absolute inset-0 flex flex-col items-center justify-center z-30"
+      style={{ background: "linear-gradient(180deg, rgba(34,140,60,0.92) 0%, rgba(20,100,40,0.96) 50%, rgba(10,60,25,0.98) 100%)" }}
     >
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div className="relative z-10 flex flex-col items-center gap-4">
-        <span className="text-xs font-display font-bold tracking-[0.3em] uppercase neon-glow-cyan" style={{ color: "#00f2ff" }}>
-          Ethio-Tiles
-        </span>
-        <h2 className="text-lg font-semibold text-white/80">{song.title}</h2>
+        {/* Song title */}
+        <h2 className="text-sm font-semibold text-white/70 tracking-wide">{song.title}</h2>
+
+        {/* Golden crown rating (MT3-accurate) */}
         <div className="flex gap-3">
           {[1, 2, 3].map((s) => (
             <motion.div
               key={s}
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.2 + s * 0.18 }}
+              transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.3 + s * 0.2 }}
             >
-              <Star
-                className={`h-14 w-14 transition-all duration-500 ${
-                  stars >= s ? "drop-shadow-[0_0_16px_rgba(0,242,255,0.8)]" : "text-gray-500/40"
+              <Crown
+                className={`h-12 w-12 transition-all duration-500 ${
+                  stars >= s ? "drop-shadow-[0_0_12px_rgba(255,200,0,0.7)]" : "text-white/20"
                 }`}
-                style={stars >= s ? { color: "#00f2ff", fill: "#00f2ff" } : undefined}
+                style={stars >= s ? { color: "#ffc800", fill: "#ffc800" } : undefined}
               />
             </motion.div>
           ))}
         </div>
-        <p className="text-6xl font-black text-white font-mono-game mt-3 neon-glow-cyan">{score}</p>
-        <div className="flex gap-6 text-sm text-white/70 mt-1">
-          <span>Combo: {maxCombo}x</span>
-          <span>Accuracy: {accuracy}%</span>
-        </div>
-        <div className="flex gap-3 mt-8">
+
+        {/* Score */}
+        <motion.p
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
+          className="text-6xl font-black text-white font-mono-game mt-1"
+          style={{ textShadow: "0 2px 12px rgba(0,0,0,0.3)" }}
+        >
+          {score}
+        </motion.p>
+
+        {/* "SPLENDID" rating text (MT3: blue gradient) */}
+        <motion.p
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.8, type: "spring", stiffness: 180 }}
+          className="text-3xl font-black tracking-wide"
+          style={{
+            background: "linear-gradient(180deg, #6366f1, #3b82f6)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            textShadow: "none",
+            filter: "drop-shadow(0 2px 4px rgba(99,102,241,0.4))",
+          }}
+        >
+          {ratingLabel}
+        </motion.p>
+
+        {/* Accuracy breakdown */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 1.0 }}
+          className="w-full max-w-[220px] bg-black/20 rounded-xl p-3 mt-1 border border-white/10"
+        >
+          <div className="grid grid-cols-2 gap-y-1.5 text-sm">
+            <span className="text-[#ffc800] font-semibold">Perfect</span>
+            <span className="text-white font-mono-game text-right">{perfects}</span>
+            <span className="text-[#60a5fa] font-semibold">Great</span>
+            <span className="text-white font-mono-game text-right">{greats}</span>
+            <span className="text-white/60 font-semibold">Cool</span>
+            <span className="text-white font-mono-game text-right">{cools}</span>
+            <span className="text-white/40 font-semibold border-t border-white/10 pt-1.5">Max Combo</span>
+            <span className="text-white font-mono-game text-right border-t border-white/10 pt-1.5">{maxCombo}x</span>
+            <span className="text-white/40 font-semibold">Accuracy</span>
+            <span className="text-white font-mono-game text-right">{accuracy}%</span>
+          </div>
+        </motion.div>
+
+        {/* Buttons */}
+        <div className="flex gap-3 mt-4">
           <Button
             onClick={onRetry}
             size="lg"
             className="gap-2 font-bold rounded-full px-8 shadow-lg active:scale-95 transition-transform"
             style={{
-              background: "linear-gradient(135deg, #00f2ff, #0099cc)",
-              color: "#0a0118",
-              boxShadow: "0 0 18px rgba(0,242,255,0.5)",
+              background: "linear-gradient(135deg, #ffc800, #ff9500)",
+              color: "#1a1a1a",
+              boxShadow: "0 0 14px rgba(255,200,0,0.4)",
             }}
           >
             <RotateCcw className="h-4 w-4" />
             Retry
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="lg"
             onClick={onQuit}
-            className="text-white border-white/30 hover:bg-white/10 rounded-full px-8"
+            className="text-white/80 hover:text-white border border-white/20 hover:bg-white/10 rounded-full px-8 transition-colors"
           >
             Back
           </Button>

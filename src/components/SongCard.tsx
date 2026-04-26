@@ -1,11 +1,12 @@
-import { Play, Volume2 } from "lucide-react";
+import { Play, Volume2, Crown } from "lucide-react";
 import { Song } from "@/lib/songs";
 import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 
 const difficultyColors: Record<string, string> = {
-  easy: "bg-emerald-500 text-white",
-  medium: "bg-amber-500 text-white",
-  hard: "bg-red-500 text-white",
+  easy: "bg-emerald-500/90 text-white",
+  medium: "bg-amber-500/90 text-white",
+  hard: "bg-red-500/90 text-white",
 };
 
 const genreGradients: Record<string, string> = {
@@ -16,9 +17,24 @@ const genreGradients: Record<string, string> = {
   World: "from-violet-500 via-purple-500 to-indigo-500",
 };
 
+interface HighScore {
+  score: number;
+  stars: number;
+  maxCombo: number;
+  accuracy: number;
+}
+
 const SongCard = ({ song, index }: { song: Song; index?: number }) => {
   const navigate = useNavigate();
   const gradient = genreGradients[song.genre] || "from-gray-500 to-gray-600";
+
+  // Read high score from localStorage
+  const highScore = useMemo<HighScore | null>(() => {
+    try {
+      const data = localStorage.getItem(`ethio-tiles-highscore-${song.id}`);
+      return data ? JSON.parse(data) : null;
+    } catch { return null; }
+  }, [song.id]);
 
   return (
     <button
@@ -54,13 +70,36 @@ const SongCard = ({ song, index }: { song: Song; index?: number }) => {
           </div>
         </div>
 
-        {/* Right side: difficulty + play */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+        {/* Right side: difficulty + stars + play */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
           <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase ${difficultyColors[song.difficulty]}`}>
             {song.difficulty}
           </span>
-          <div className="flex h-9 w-20 items-center justify-center rounded-md bg-gray-900/60 text-white text-xs font-bold gap-1.5 group-hover:bg-gray-900/80 transition-colors">
-            <Play className="h-3.5 w-3.5 fill-white" />
+
+          {/* Star/Crown rating from high score (MT3-style golden crowns) */}
+          {highScore ? (
+            <div className="flex gap-0.5">
+              {[1, 2, 3].map((s) => (
+                <Crown
+                  key={s}
+                  className={`h-4 w-4 ${
+                    highScore.stars >= s
+                      ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_3px_rgba(250,204,21,0.6)]"
+                      : "text-white/20"
+                  }`}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-0.5">
+              {[1, 2, 3].map((s) => (
+                <Crown key={s} className="h-4 w-4 text-white/20" />
+              ))}
+            </div>
+          )}
+
+          <div className="flex h-8 w-18 items-center justify-center rounded-md bg-gray-900/60 text-white text-xs font-bold gap-1 group-hover:bg-gray-900/80 transition-colors px-3">
+            <Play className="h-3 w-3 fill-white" />
             PLAY
           </div>
         </div>
