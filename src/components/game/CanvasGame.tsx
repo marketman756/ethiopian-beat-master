@@ -19,7 +19,7 @@ export interface CanvasGameHandle {
     beatPhase: number;
     tileHeightFrac: number;
     starsEarned: 0 | 1 | 2 | 3;
-    songProgress?: number;
+    songProgress: number;
   }) => void;
   flashLane: (lane: number) => void;
   spawnParticles: (lane: number) => void;
