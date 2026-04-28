@@ -1,3 +1,8 @@
+import { buildChartFromAudio } from "./onsetChart";
+
+/** In-memory cache so we don't re-analyze the same audio twice per session. */
+const onsetCache = new Map<string, ChartNote[]>();
+
 /**
  * Tile Chart System — CONTINUOUS back-to-back tiles synced to BPM.
  * Every tile ends exactly where the next one begins on a DIFFERENT lane.
@@ -147,12 +152,32 @@ export async function loadChart(songId: string): Promise<TileChart | undefined> 
   const fallback = getChartForSong(songId);
   try {
     const res = await fetch(`/charts/${songId}.json`, { cache: "force-cache" });
-    if (!res.ok) return fallback;
+    if (!res.ok) return await tryOnsetUpgrade(fallback);
     const json = (await res.json()) as JsonChart;
-    return normalizeJsonChart(json, fallback);
+    const base = normalizeJsonChart(json, fallback);
+    return await tryOnsetUpgrade(base);
   } catch {
-    return fallback;
+    return await tryOnsetUpgrade(fallback);
   }
+}
+
+/**
+ * If the chart has a real audio URL, replace its notes with onset-aligned
+ * notes derived from the audio itself. Cached per audio URL.
+ * Falls back to the input chart on any failure.
+ */
+async function tryOnsetUpgrade(chart?: TileChart): Promise<TileChart | undefined> {
+  if (!chart || !chart.audioUrl) return chart;
+  const cached = onsetCache.get(chart.audioUrl);
+  if (cached) return { ...chart, notes: cached };
+
+  const onsetNotes = await buildChartFromAudio(chart.audioUrl, chart.bpm);
+  if (!onsetNotes || onsetNotes.length < chart.notes.length / 2) {
+    // Detection too sparse — keep authored/procedural chart
+    return chart;
+  }
+  onsetCache.set(chart.audioUrl, onsetNotes);
+  return { ...chart, notes: onsetNotes };
 }
 
 function normalizeJsonChart(json: JsonChart, fallback?: TileChart): TileChart {
