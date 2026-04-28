@@ -152,6 +152,22 @@ export const HIT_WINDOWS = {
   MAX_REGISTRABLE: 380,
 } as const;
 
+/**
+ * Musical hit windows — scale with the song's beat length.
+ * A "PERFECT" should feel like a grace note (~1/8 of a beat),
+ * a "GREAT" like a 1/4-beat slip, a "COOL" like a 1/3-beat slip.
+ * Bounded by the static defaults so very fast or slow songs stay sane.
+ */
+export function getMusicalHitWindows(bpm: number) {
+  const beatMs = 60000 / Math.max(40, bpm);
+  return {
+    PERFECT: Math.min(110, Math.max(60, beatMs * 0.13)),
+    GREAT:   Math.min(200, Math.max(130, beatMs * 0.28)),
+    COOL:    Math.min(300, Math.max(200, beatMs * 0.42)),
+    MAX_REGISTRABLE: Math.min(420, Math.max(280, beatMs * 0.60)),
+  } as const;
+}
+
 export type HitLabel = "PERFECT" | "GREAT" | "COOL";
 
 /**
@@ -174,11 +190,10 @@ export function getHitLabel(
     return "COOL";
   }
 
-  // Fallback: static windows with BPM adjustment
-  // (mirrors AdjustHitStatusForExtremeSong — widens for fast songs)
-  const speedScale = bpm > 160 ? Math.min(1.35, bpm / 150) : 1.0;
-  if (abs <= HIT_WINDOWS.PERFECT * speedScale) return "PERFECT";
-  if (abs <= HIT_WINDOWS.GREAT * speedScale) return "GREAT";
+  // Musical, BPM-derived windows — same shape across all songs by *feel*
+  const w = getMusicalHitWindows(bpm);
+  if (abs <= w.PERFECT) return "PERFECT";
+  if (abs <= w.GREAT) return "GREAT";
   return "COOL";
 }
 
