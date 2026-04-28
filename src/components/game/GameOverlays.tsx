@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart, Crown } from "lucide-react";
+import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart, Crown, Wand2 } from "lucide-react";
 import { ROUND_SPEEDS } from "@/lib/gameEngine";
 import { Song } from "@/lib/songs";
 import { useEffect, useRef, useState } from "react";
@@ -94,6 +94,7 @@ interface PauseOverlayProps {
 
 export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => {
   const [offset, setOffset] = useState<number>(() => getCalibrationOffset());
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
     setCalibrationOffset(offset);
@@ -129,15 +130,24 @@ export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => {
         <p className="text-[10px] text-white/40 leading-snug">
           If hits feel late, increase. If they feel early, decrease.
         </p>
-        {offset !== 0 && (
+        <div className="flex items-center justify-between mt-1">
           <button
             type="button"
-            onClick={() => setOffset(0)}
-            className="text-[10px] text-white/50 hover:text-white underline self-end"
+            onClick={() => setWizardOpen(true)}
+            className="text-[11px] text-white/80 hover:text-white inline-flex items-center gap-1"
           >
-            Reset to 0
+            <Wand2 className="h-3 w-3" /> Tap-to-calibrate
           </button>
-        )}
+          {offset !== 0 && (
+            <button
+              type="button"
+              onClick={() => setOffset(0)}
+              className="text-[10px] text-white/50 hover:text-white underline"
+            >
+              Reset to 0
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -161,7 +171,204 @@ export const PauseOverlay = ({ onResume, onQuit }: PauseOverlayProps) => {
           Quit
         </Button>
       </div>
+
+      {wizardOpen && (
+        <CalibrationWizard
+          onClose={() => setWizardOpen(false)}
+          onApply={(ms) => { setOffset(ms); setWizardOpen(false); }}
+        />
+      )}
     </motion.div>
+  );
+};
+
+/**
+ * CalibrationWizard — plays 8 metronome ticks (120 BPM = 500ms each),
+ * asks the player to tap on every click, then averages the signed delta
+ * (tap - tick) and sets that as the audio offset.
+ */
+const TICK_COUNT = 8;
+const TICK_INTERVAL_MS = 500;
+const LEAD_IN_MS = 1200;
+
+const CalibrationWizard = ({
+  onClose,
+  onApply,
+}: {
+  onClose: () => void;
+  onApply: (offsetMs: number) => void;
+}) => {
+  const [phase, setPhase] = useState<"ready" | "running" | "done">("ready");
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<number | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const tickTimesRef = useRef<number[]>([]);
+  const tapsRef = useRef<number[]>([]);
+
+  useEffect(() => () => { ctxRef.current?.close().catch(() => {}); }, []);
+
+  const playTick = (when: number) => {
+    const ctx = ctxRef.current!;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 1200;
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(0.25, when + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(when);
+    osc.stop(when + 0.08);
+  };
+
+  const start = () => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    ctxRef.current = ctx;
+    tickTimesRef.current = [];
+    tapsRef.current = [];
+    const t0 = ctx.currentTime + LEAD_IN_MS / 1000;
+    for (let i = 0; i < TICK_COUNT; i++) {
+      const when = t0 + (i * TICK_INTERVAL_MS) / 1000;
+      playTick(when);
+      tickTimesRef.current.push(when * 1000); // store as ms in ctx-time
+    }
+    setPhase("running");
+    setProgress(0);
+
+    // Watchdog completion: 1.5s after last tick
+    const totalMs = LEAD_IN_MS + TICK_COUNT * TICK_INTERVAL_MS + 1500;
+    const startedAt = performance.now();
+    const tick = () => {
+      const elapsed = performance.now() - startedAt;
+      setProgress(Math.min(1, elapsed / totalMs));
+      if (elapsed < totalMs) requestAnimationFrame(tick);
+      else finish();
+    };
+    requestAnimationFrame(tick);
+  };
+
+  const handleTap = () => {
+    if (phase !== "running" || !ctxRef.current) return;
+    tapsRef.current.push(ctxRef.current.currentTime * 1000);
+  };
+
+  const finish = () => {
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    const taps = tapsRef.current;
+    const ticks = tickTimesRef.current;
+    if (taps.length < 3) {
+      setResult(null);
+      setPhase("done");
+      return;
+    }
+    // For each tap, find the nearest tick within ±300ms; collect signed deltas.
+    const deltas: number[] = [];
+    for (const tap of taps) {
+      let best = Infinity;
+      let signed = 0;
+      for (const tk of ticks) {
+        const d = tap - tk;
+        if (Math.abs(d) < Math.abs(best)) { best = d; signed = d; }
+      }
+      if (Math.abs(signed) <= 300) deltas.push(signed);
+    }
+    if (deltas.length < 3) { setResult(null); setPhase("done"); return; }
+    // Trim outliers (10% each end), then mean.
+    deltas.sort((a, b) => a - b);
+    const trim = Math.floor(deltas.length * 0.1);
+    const core = deltas.slice(trim, deltas.length - trim);
+    const mean = core.reduce((s, v) => s + v, 0) / core.length;
+    // Player taps LATE relative to tick → mean is positive → increase audio
+    // offset (treat audio as later) by that same amount so the tap window
+    // shifts forward to compensate.
+    setResult(Math.round(mean));
+    setPhase("done");
+  };
+
+  return (
+    <div
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg px-6"
+      onPointerDown={handleTap}
+    >
+      <div className="text-xs font-display font-bold tracking-[0.3em] uppercase" style={{ color: "#00f2ff" }}>
+        Calibration
+      </div>
+      {phase === "ready" && (
+        <>
+          <h3 className="text-xl font-bold text-white mt-3">Tap on every beep</h3>
+          <p className="text-white/60 text-sm text-center mt-2 max-w-xs">
+            You'll hear {TICK_COUNT} clicks at a steady tempo. Tap anywhere on this
+            screen exactly with each click.
+          </p>
+          <div className="flex gap-3 mt-6">
+            <Button
+              onClick={(e) => { e.stopPropagation(); start(); }}
+              className="rounded-full px-6 font-bold"
+              style={{ background: "linear-gradient(135deg,#00f2ff,#0099cc)", color: "#0a0118" }}
+            >
+              Start
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              className="text-white/80 border border-white/20 rounded-full px-6"
+            >
+              Cancel
+            </Button>
+          </div>
+        </>
+      )}
+      {phase === "running" && (
+        <>
+          <h3 className="text-xl font-bold text-white mt-3">Tap with the beeps…</h3>
+          <div className="w-56 h-2 bg-white/10 rounded-full overflow-hidden mt-6">
+            <div
+              className="h-full"
+              style={{ width: `${progress * 100}%`, background: "#00f2ff", transition: "width 80ms linear" }}
+            />
+          </div>
+          <p className="text-white/40 text-xs mt-3">{tapsRef.current.length} taps</p>
+        </>
+      )}
+      {phase === "done" && (
+        <>
+          <h3 className="text-xl font-bold text-white mt-3">
+            {result === null ? "Not enough taps" : "Detected offset"}
+          </h3>
+          {result !== null && (
+            <p className="text-4xl font-black font-mono-game mt-2" style={{ color: "#00f2ff" }}>
+              {result > 0 ? "+" : ""}{result} ms
+            </p>
+          )}
+          <div className="flex gap-3 mt-6">
+            {result !== null && (
+              <Button
+                onClick={(e) => { e.stopPropagation(); onApply(result); }}
+                className="rounded-full px-6 font-bold"
+                style={{ background: "linear-gradient(135deg,#00f2ff,#0099cc)", color: "#0a0118" }}
+              >
+                Apply
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); setPhase("ready"); }}
+              className="text-white/80 border border-white/20 rounded-full px-6"
+            >
+              Retry
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              className="text-white/60 rounded-full px-4"
+            >
+              Close
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
