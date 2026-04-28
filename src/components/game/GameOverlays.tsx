@@ -86,7 +86,8 @@ export const ReadyOverlay = forwardRef<HTMLDivElement, ReadyOverlayProps>(
       </div>
     </div>
   </motion.div>
-);
+));
+ReadyOverlay.displayName = "ReadyOverlay";
 
 // ─── PAUSE OVERLAY (MT3: clean dark blur) ───
 interface PauseOverlayProps {
