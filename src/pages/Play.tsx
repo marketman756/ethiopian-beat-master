@@ -111,6 +111,7 @@ const Play = () => {
     if (gamePhase !== "loading" || !chart) return;
     let cancelled = false;
     const run = async () => {
+      const audioUrl = chart.audioUrl;
       if (chart.audioUrl) {
         const interval = setInterval(() => {
           if (cancelled) return;
@@ -128,7 +129,7 @@ const Play = () => {
     };
     run();
     return () => { cancelled = true; };
-  }, [gamePhase, chart, audio]);
+  }, [gamePhase, chart?.audioUrl, audio]);
 
   useEffect(() => {
     if (loadingProgress >= 100 && gamePhase === "loading") {
