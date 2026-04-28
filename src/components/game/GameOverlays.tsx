@@ -3,7 +3,7 @@ import { Slider } from "@/components/ui/slider";
 import { Play as PlayIcon, RotateCcw, Headphones, Star, Heart, Crown, Wand2 } from "lucide-react";
 import { ROUND_SPEEDS } from "@/lib/gameEngine";
 import { Song } from "@/lib/songs";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CALIBRATION_RANGE,
@@ -18,10 +18,8 @@ interface ReadyOverlayProps {
   onStart: () => void;
 }
 
-export const ReadyOverlay = forwardRef<HTMLDivElement, ReadyOverlayProps>(
-  ({ song, loadingProgress, onStart }, ref) => (
+export const ReadyOverlay = ({ song, loadingProgress, onStart }: ReadyOverlayProps) => (
   <motion.div
-    ref={ref}
     initial={{ opacity: 0, scale: 0.96 }}
     animate={{ opacity: 1, scale: 1 }}
     exit={{ opacity: 0 }}
@@ -86,8 +84,7 @@ export const ReadyOverlay = forwardRef<HTMLDivElement, ReadyOverlayProps>(
       </div>
     </div>
   </motion.div>
-));
-ReadyOverlay.displayName = "ReadyOverlay";
+);
 
 // ─── PAUSE OVERLAY (MT3: clean dark blur) ───
 interface PauseOverlayProps {
