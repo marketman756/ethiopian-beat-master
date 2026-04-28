@@ -8,6 +8,7 @@ import {
   getHitLabel, getScoreForHit, getHealthChange, playTapSound, playMissSound,
   playPerfectSound, triggerVibration, getSpeedMultiplier, STAR_NOTE_THRESHOLDS,
   MIN_NOTE_CHANGE_STAR, getReleaseLabel, lerp, getNoteBasedSpeedMultiplier,
+  getMusicalHitWindows, RELEASE_WINDOWS,
 } from "@/lib/gameEngine";
 import CanvasGame, { CanvasGameHandle } from "@/components/game/CanvasGame";
 import GameHUD from "@/components/game/GameHUD";
@@ -256,6 +257,35 @@ const Play = () => {
           id: t.id, lane: t.lane, y: t.y, label: "MISS", timestamp: performance.now(),
         });
         if (applyHealthChange("MISS")) return;
+      }
+    }
+
+    // Sustained hold judgment: if a held tile blew well past its end without
+    // a release, auto-complete it as PERFECT (player kept finger down through
+    // the whole phrase — that's the win condition).
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      if (t.type !== "hold" || !t.holding || t.holdComplete) continue;
+      const end = t.holdEndTime ?? t.chartTime;
+      if (songTimeMs > end + RELEASE_WINDOWS.GREAT) {
+        t.holding = false;
+        t.hit = true;
+        t.holdComplete = true;
+        holdingTileByLaneRef.current.delete(t.lane);
+        const gain = getScoreForHit("PERFECT", comboRef.current);
+        scoreRef.current += gain;
+        comboRef.current += 1;
+        if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
+        perfectsRef.current++;
+        totalHitsRef.current++;
+        setScore(scoreRef.current);
+        setCombo(comboRef.current);
+        setMaxCombo(comboRef.current);
+        setTotalHits(totalHitsRef.current);
+        const nowP = performance.now();
+        hitEffectsRef.current.push({
+          id: t.id, lane: t.lane, y: t.y, label: "PERFECT", timestamp: nowP,
+        });
       }
     }
 
