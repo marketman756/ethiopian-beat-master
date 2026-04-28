@@ -50,10 +50,17 @@ export function useGameAudio(): GameAudioState {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
       const arrayBuffer = await response.arrayBuffer();
-      bufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+      // decodeAudioData is unreliable when given a transferred ArrayBuffer in
+      // some browsers — slice() makes a fresh copy.
+      bufferRef.current = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      console.info(
+        `[audio] loaded ${url} — ${bufferRef.current.duration.toFixed(1)}s, ` +
+        `${bufferRef.current.sampleRate}Hz, ${bufferRef.current.numberOfChannels}ch`,
+      );
     } catch (err) {
-      console.warn("Audio load failed, game will use synth sounds only:", err);
+      console.error("[audio] load failed:", url, err);
       bufferRef.current = null;
+      throw err;
     }
   }, [getCtx]);
 
