@@ -116,8 +116,13 @@ const Play = () => {
           if (cancelled) return;
           setLoadingProgress((p) => Math.min(p + Math.random() * 10 + 3, 85));
         }, 200);
-        await audio.loadAudio(chart.audioUrl);
-        clearInterval(interval);
+        try {
+          await audio.loadAudio(chart.audioUrl);
+        } catch (e) {
+          console.error("[Play] Audio failed to load — game will start without music:", e);
+        } finally {
+          clearInterval(interval);
+        }
       }
       if (!cancelled) setLoadingProgress(100);
     };
@@ -495,6 +500,13 @@ const Play = () => {
   }, [audio]);
 
   const startGame = useCallback(() => {
+    // CRITICAL: resume the AudioContext synchronously inside the user gesture
+    // before any await/setState. Mobile Safari + some Chrome versions will
+    // refuse to play audio if resume() happens later in the call stack.
+    try {
+      const ctx = audio.getAudioContext();
+      if (ctx.state === "suspended") void ctx.resume();
+    } catch { /* ignore */ }
     resetGame();
     setRound(0);
     setCanRevive(true);

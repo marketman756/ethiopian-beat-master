@@ -6,7 +6,7 @@
  * meta state (combo/lane-flash decay) needs to bubble up via props callbacks.
  */
 
-import { memo, useCallback, useEffect, useRef } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import { CanvasRenderer, HIT_ZONE_RATIO } from "@/lib/CanvasRenderer";
 import { GameTile, HitEffect, LANES, KEYBOARD_LANE_MAP } from "@/lib/gameEngine";
 
@@ -34,7 +34,8 @@ interface CanvasGameProps {
   registerHandle: (handle: CanvasGameHandle) => void;
 }
 
-const CanvasGame = memo(({ onLaneTap, onLaneRelease, active, registerHandle }: CanvasGameProps) => {
+const CanvasGame = memo(forwardRef<HTMLDivElement, CanvasGameProps>(
+  ({ onLaneTap, onLaneRelease, active, registerHandle }, _ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
   const stateRef = useRef({
@@ -163,7 +164,7 @@ const CanvasGame = memo(({ onLaneTap, onLaneRelease, active, registerHandle }: C
       <div data-hit-zone-ratio={HIT_ZONE_RATIO} className="hidden" />
     </div>
   );
-});
+}));
 
 CanvasGame.displayName = "CanvasGame";
 
