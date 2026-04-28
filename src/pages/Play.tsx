@@ -116,8 +116,13 @@ const Play = () => {
           if (cancelled) return;
           setLoadingProgress((p) => Math.min(p + Math.random() * 10 + 3, 85));
         }, 200);
-        await audio.loadAudio(chart.audioUrl);
-        clearInterval(interval);
+        try {
+          await audio.loadAudio(chart.audioUrl);
+        } catch (e) {
+          console.error("[Play] Audio failed to load — game will start without music:", e);
+        } finally {
+          clearInterval(interval);
+        }
       }
       if (!cancelled) setLoadingProgress(100);
     };
