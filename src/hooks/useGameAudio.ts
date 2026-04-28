@@ -2,7 +2,7 @@
  * useGameAudio — AudioContext-based audio loading, playback, and precision timing.
  * Uses AudioContext.currentTime as the master clock for drift-free sync.
  */
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import { getCalibrationOffset } from "@/lib/calibration";
 
 interface GameAudioState {
@@ -139,7 +139,7 @@ export function useGameAudio(): GameAudioState {
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     loadAudio,
     startPlayback,
     stopPlayback,
@@ -148,5 +148,14 @@ export function useGameAudio(): GameAudioState {
     getSongTimeMs,
     isLoaded,
     getAudioContext: getCtx,
-  };
+  }), [
+    loadAudio,
+    startPlayback,
+    stopPlayback,
+    pausePlayback,
+    resumePlayback,
+    getSongTimeMs,
+    isLoaded,
+    getCtx,
+  ]);
 }

@@ -111,13 +111,14 @@ const Play = () => {
     if (gamePhase !== "loading" || !chart) return;
     let cancelled = false;
     const run = async () => {
-      if (chart.audioUrl) {
+      const audioUrl = chart.audioUrl;
+      if (audioUrl) {
         const interval = setInterval(() => {
           if (cancelled) return;
           setLoadingProgress((p) => Math.min(p + Math.random() * 10 + 3, 85));
         }, 200);
         try {
-          await audio.loadAudio(chart.audioUrl);
+          await audio.loadAudio(audioUrl);
         } catch (e) {
           console.error("[Play] Audio failed to load — game will start without music:", e);
         } finally {
@@ -128,7 +129,7 @@ const Play = () => {
     };
     run();
     return () => { cancelled = true; };
-  }, [gamePhase, chart, audio]);
+  }, [gamePhase, chart?.audioUrl, audio]);
 
   useEffect(() => {
     if (loadingProgress >= 100 && gamePhase === "loading") {
