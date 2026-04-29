@@ -17,6 +17,9 @@ import {
   RoundCompleteOverlay, SongCompleteOverlay,
 } from "@/components/game/GameOverlays";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useAuth } from "@/contexts/AuthContext";
+import { submitScore } from "@/lib/scores";
+import { toast } from "sonner";
 
 const HIT_ZONE_Y = 87;        // % of playfield height (matches CanvasRenderer.HIT_ZONE_RATIO)
 const HOLD_HEIGHT_BASE = 18;
@@ -38,6 +41,9 @@ const Play = () => {
   const navigate = useNavigate();
   const song = songs.find((s) => s.id === songId);
   const audio = useGameAudio();
+  const { user } = useAuth();
+  const playStartedAtRef = useRef<number>(0);
+  const submittedRef = useRef<string | null>(null);
 
   // ── React state (UI-driven only) ──
   const [chart, setChart] = useState<TileChart | null>(() =>
@@ -512,6 +518,8 @@ const Play = () => {
     setRound(0);
     setCanRevive(true);
     audio.startPlayback(LEAD_IN_MS, 1);
+    playStartedAtRef.current = performance.now();
+    submittedRef.current = null;
     setGamePhase("playing");
   }, [resetGame, audio]);
 
