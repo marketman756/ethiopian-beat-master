@@ -33,6 +33,9 @@ export function useGameAudio(): GameAudioState {
   // For pause/resume: how far into the song we paused
   const pausedSongTimeRef = useRef<number | null>(null);
   const playbackRateRef = useRef(1);
+  // Hardware latency (output + base), measured once per context. Subtracted
+  // from reported song time so visuals align with what the user actually hears.
+  const hardwareLatencyMsRef = useRef(0);
 
   const getCtx = useCallback((): AudioContext => {
     if (!ctxRef.current) {
@@ -41,6 +44,11 @@ export function useGameAudio(): GameAudioState {
     if (ctxRef.current.state === "suspended") {
       ctxRef.current.resume();
     }
+    // Re-measure on every access — outputLatency can change after device switch.
+    const ctx = ctxRef.current;
+    const out = (ctx as AudioContext & { outputLatency?: number }).outputLatency ?? 0;
+    const base = (ctx as AudioContext & { baseLatency?: number }).baseLatency ?? 0;
+    hardwareLatencyMsRef.current = (out + base) * 1000;
     return ctxRef.current;
   }, []);
 
@@ -122,7 +130,8 @@ export function useGameAudio(): GameAudioState {
   const getSongTimeMs = useCallback((): number => {
     // Apply calibration offset: positive offset means audio is perceived later
     // than visuals, so we shift the reported song time forward to compensate.
-    const offset = getCalibrationOffset();
+    // Combine user-tuned calibration with measured hardware output latency.
+    const offset = getCalibrationOffset() + hardwareLatencyMsRef.current;
     if (pausedSongTimeRef.current !== null) {
       return pausedSongTimeRef.current + offset;
     }

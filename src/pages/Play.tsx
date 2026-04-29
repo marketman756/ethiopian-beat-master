@@ -515,6 +515,19 @@ const Play = () => {
     setGamePhase("playing");
   }, [resetGame, audio]);
 
+  // Auto-pause when the tab is backgrounded so AudioContext doesn't drift
+  // silently. The user can resume from the pause overlay.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden && gamePhase === "playing") {
+        setGamePhase("paused");
+        audio.pausePlayback();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [gamePhase, audio]);
+
   const handleRevive = useCallback(() => {
     if (!failStateRef.current) return;
     healthRef.current = HEALTH.MAX;
