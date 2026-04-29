@@ -536,6 +536,39 @@ const Play = () => {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [gamePhase, audio]);
 
+  // Submit score to leaderboard on song completion (or fail with enough play time).
+  // Anonymous, email, and Google users all qualify — the server validates.
+  useEffect(() => {
+    if (!user || !chart || !songId) return;
+    if (gamePhase !== "song-complete" && gamePhase !== "failed") return;
+    if (submittedRef.current === songId + ":" + gamePhase) return;
+    const durationMs = Math.max(0, performance.now() - playStartedAtRef.current);
+    if (durationMs < 5000) return; // matches server-side check
+    submittedRef.current = songId + ":" + gamePhase;
+    const misses = Math.max(
+      0,
+      chart.notes.length - perfectsRef.current - greatsRef.current - coolsRef.current,
+    );
+    submitScore({
+      songId,
+      score: scoreRef.current,
+      maxCombo: maxComboRef.current,
+      perfects: perfectsRef.current,
+      greats: greatsRef.current,
+      cools: coolsRef.current,
+      misses,
+      totalNotes: chart.notes.length,
+      durationMs: Math.round(durationMs),
+      stars: starsRef.current,
+    }).then(({ error }) => {
+      if (error) {
+        console.warn("[score] submission rejected:", error.message);
+      } else {
+        toast.success("Score submitted to leaderboard");
+      }
+    });
+  }, [gamePhase, user, chart, songId]);
+
   const handleRevive = useCallback(() => {
     if (!failStateRef.current) return;
     healthRef.current = HEALTH.MAX;
