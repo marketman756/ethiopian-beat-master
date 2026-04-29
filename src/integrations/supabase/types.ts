@@ -14,13 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_guest: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_guest?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_guest?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      score_submissions: {
+        Row: {
+          accuracy: number
+          cools: number
+          created_at: string
+          duration_ms: number
+          greats: number
+          id: string
+          max_combo: number
+          misses: number
+          perfects: number
+          score: number
+          song_id: string
+          stars: number
+          total_notes: number
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number
+          cools?: number
+          created_at?: string
+          duration_ms: number
+          greats?: number
+          id?: string
+          max_combo?: number
+          misses?: number
+          perfects?: number
+          score: number
+          song_id: string
+          stars?: number
+          total_notes: number
+          user_id: string
+        }
+        Update: {
+          accuracy?: number
+          cools?: number
+          created_at?: string
+          duration_ms?: number
+          greats?: number
+          id?: string
+          max_combo?: number
+          misses?: number
+          perfects?: number
+          score?: number
+          song_id?: string
+          stars?: number
+          total_notes?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_song_bests: {
+        Row: {
+          best_accuracy: number
+          best_max_combo: number
+          best_score: number
+          best_stars: number
+          play_count: number
+          song_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_accuracy?: number
+          best_max_combo?: number
+          best_score?: number
+          best_stars?: number
+          play_count?: number
+          song_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_accuracy?: number
+          best_max_combo?: number
+          best_score?: number
+          best_stars?: number
+          play_count?: number
+          song_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      submit_score: {
+        Args: {
+          p_cools: number
+          p_duration_ms: number
+          p_greats: number
+          p_max_combo: number
+          p_misses: number
+          p_perfects: number
+          p_score: number
+          p_song_id: string
+          p_stars: number
+          p_total_notes: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
