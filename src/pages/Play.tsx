@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { songs } from "@/lib/songs";
@@ -19,6 +19,7 @@ import {
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useAuth } from "@/contexts/AuthContext";
 import { submitScore } from "@/lib/scores";
+import { updateMyProgress, finishRoom } from "@/lib/multiplayer";
 import { toast } from "sonner";
 
 const HIT_ZONE_Y = 87;        // % of playfield height (matches CanvasRenderer.HIT_ZONE_RATIO)
