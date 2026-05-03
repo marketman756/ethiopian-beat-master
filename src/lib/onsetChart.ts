@@ -23,12 +23,29 @@ const HOP = 512;                    // 50% overlap → ~23ms frames
 const MIN_GAP_MS = 140;             // refractory period between onsets per band
 const PEAK_WINDOW = 6;              // local-max window (frames)
 const FLUX_THRESHOLD_MULT = 1.45;   // peak must exceed running mean × this
+const SIMULTANEOUS_MS = 55;         // onsets within this window → chord/double
+const HOLD_MIN_MS = 320;            // sustained energy below this → tap, not hold
+const HOLD_MAX_MS = 1800;           // cap a single hold tile length
+const SILENCE_RMS = 0.012;          // frames below this RMS count as silence
 
 interface RawOnset {
   timeMs: number;
-  band: "low" | "high";
+  band: "low" | "mid" | "high";
   strength: number;
+  /** Spectral centroid (Hz) of the frame — used to bucket pitch → lane. */
+  centroidHz: number;
+  /** Frame index in the analysis grid — used for sustain lookup. */
+  frame: number;
 }
+
+/** Per-frame RMS + centroid arrays, kept so onsetsToChart can detect sustain/silence. */
+interface AnalysisFrames {
+  rms: Float32Array;
+  centroidHz: Float32Array;
+  frameMs: number;
+}
+
+let lastFrames: AnalysisFrames | null = null;
 
 /**
  * Build a chart from a decoded audio URL. Returns null on failure so the
@@ -103,30 +120,51 @@ function detectOnsets(samples: Float32Array, sr: number): RawOnset[] {
   const re = new Float32Array(FFT_SIZE);
   const im = new Float32Array(FFT_SIZE);
 
-  // Frequency bins: low = 40–250 Hz (kick/bass), high = 2k–8k (snare/vocal)
+  // Frequency bins: low = 40–250 Hz (kick/bass), mid = 250–2k (vocals/melody), high = 2k–8k (snare/cymbal/sibilants)
   const binHz = sr / FFT_SIZE;
   const lowLo = Math.floor(40 / binHz);
   const lowHi = Math.floor(250 / binHz);
-  const highLo = Math.floor(2000 / binHz);
+  const midLo = lowHi + 1;
+  const midHi = Math.floor(2000 / binHz);
+  const highLo = midHi + 1;
   const highHi = Math.floor(8000 / binHz);
 
   const fluxLow = new Float32Array(numFrames);
+  const fluxMid = new Float32Array(numFrames);
   const fluxHigh = new Float32Array(numFrames);
+  const rms = new Float32Array(numFrames);
+  const centroid = new Float32Array(numFrames);
   let prevMagLow: Float32Array | null = null;
+  let prevMagMid: Float32Array | null = null;
   let prevMagHigh: Float32Array | null = null;
 
   for (let f = 0; f < numFrames; f++) {
     const start = f * HOP;
+    let frameSq = 0;
     for (let i = 0; i < FFT_SIZE; i++) {
-      re[i] = samples[start + i] * window[i];
+      const s = samples[start + i];
+      frameSq += s * s;
+      re[i] = s * window[i];
       im[i] = 0;
     }
+    rms[f] = Math.sqrt(frameSq / FFT_SIZE);
     fft(re, im);
 
     const magLow = new Float32Array(lowHi - lowLo + 1);
+    const magMid = new Float32Array(midHi - midLo + 1);
     const magHigh = new Float32Array(highHi - highLo + 1);
     for (let k = lowLo; k <= lowHi; k++) magLow[k - lowLo] = Math.hypot(re[k], im[k]);
+    for (let k = midLo; k <= midHi; k++) magMid[k - midLo] = Math.hypot(re[k], im[k]);
     for (let k = highLo; k <= highHi; k++) magHigh[k - highLo] = Math.hypot(re[k], im[k]);
+
+    // Spectral centroid across the full analyzed range (low+mid+high) — proxies pitch.
+    let cNum = 0, cDen = 0;
+    for (let k = lowLo; k <= highHi; k++) {
+      const m = Math.hypot(re[k], im[k]);
+      cNum += k * binHz * m;
+      cDen += m;
+    }
+    centroid[f] = cDen > 1e-9 ? cNum / cDen : 0;
 
     if (prevMagLow) {
       let sum = 0;
@@ -135,6 +173,14 @@ function detectOnsets(samples: Float32Array, sr: number): RawOnset[] {
         if (d > 0) sum += d;
       }
       fluxLow[f] = sum;
+    }
+    if (prevMagMid) {
+      let sum = 0;
+      for (let i = 0; i < magMid.length; i++) {
+        const d = magMid[i] - prevMagMid[i];
+        if (d > 0) sum += d;
+      }
+      fluxMid[f] = sum;
     }
     if (prevMagHigh) {
       let sum = 0;
@@ -145,13 +191,16 @@ function detectOnsets(samples: Float32Array, sr: number): RawOnset[] {
       fluxHigh[f] = sum;
     }
     prevMagLow = magLow;
+    prevMagMid = magMid;
     prevMagHigh = magHigh;
   }
 
   const frameMs = (HOP / sr) * 1000;
+  lastFrames = { rms, centroidHz: centroid, frameMs };
   const onsets: RawOnset[] = [];
-  pickPeaks(fluxLow, frameMs, "low", onsets);
-  pickPeaks(fluxHigh, frameMs, "high", onsets);
+  pickPeaks(fluxLow, frameMs, "low", centroid, onsets);
+  pickPeaks(fluxMid, frameMs, "mid", centroid, onsets);
+  pickPeaks(fluxHigh, frameMs, "high", centroid, onsets);
   onsets.sort((a, b) => a.timeMs - b.timeMs);
   return onsets;
 }
@@ -159,7 +208,8 @@ function detectOnsets(samples: Float32Array, sr: number): RawOnset[] {
 function pickPeaks(
   flux: Float32Array,
   frameMs: number,
-  band: "low" | "high",
+  band: "low" | "mid" | "high",
+  centroid: Float32Array,
   out: RawOnset[],
 ): void {
   // Adaptive threshold: local mean × multiplier
@@ -186,7 +236,7 @@ function pickPeaks(
     const timeMs = i * frameMs;
     if (timeMs - lastMs < MIN_GAP_MS) continue;
     lastMs = timeMs;
-    out.push({ timeMs, band, strength: v });
+    out.push({ timeMs, band, strength: v, centroidHz: centroid[i] || 0, frame: i });
   }
 }
 
@@ -234,47 +284,88 @@ function hann(n: number): Float32Array {
 }
 
 /**
- * Map detected onsets to lanes + types.
- *  - Low-band onsets are stronger / more confident → bias to outer lanes (0/3)
- *  - High-band onsets → inner lanes (1/2)
- *  - When two onsets fall within the same beat fraction → double tile
- *  - Sustained quiet stretches between strong onsets → hold tile
+ * Map detected onsets to lanes + types — implements the MT3 generation rules:
+ *
+ *   • PITCH → COLUMN: spectral centroid is bucketed into 4 lanes
+ *     (low pitch → lane 0/left, high pitch → lane 3/right). This mirrors a
+ *     keyboard so a rising melody walks across the screen left→right.
+ *   • SIMULTANEOUS onsets in different bands (within ~55 ms) → DOUBLE tile
+ *     spanning two pitch-appropriate lanes (chord / beat+melody hit).
+ *   • SUSTAINED energy after an onset (RMS stays above silence for ≥320 ms with
+ *     no new onset) → HOLD tile for that duration, capped at HOLD_MAX_MS.
+ *   • SILENCE (RMS below SILENCE_RMS) → no tile is emitted; the gap remains
+ *     as empty white tiles in the playfield.
+ *   • PLAYABILITY: never repeat the same lane back-to-back (nudges by ±1 if
+ *     the pitch bucket would collide with the previous tile's lane).
  */
-function onsetsToChart(onsets: RawOnset[], bpm: number): ChartNote[] {
-  const beatMs = 60000 / bpm;
+function onsetsToChart(onsets: RawOnset[], _bpm: number): ChartNote[] {
   const notes: ChartNote[] = [];
+  const frames = lastFrames;
   let prevLane = -1;
+
+  // Adaptive pitch-bucket bounds from the centroid distribution of all onsets.
+  // Using percentiles makes the mapping song-relative rather than fixed Hz.
+  const cents = onsets.map((o) => o.centroidHz).filter((c) => c > 0).sort((a, b) => a - b);
+  const pct = (p: number) => cents.length ? cents[Math.min(cents.length - 1, Math.floor(cents.length * p))] : 0;
+  const q1 = pct(0.25), q2 = pct(0.5), q3 = pct(0.75);
+
+  const pitchToLane = (hz: number, band: RawOnset["band"]): number => {
+    if (!cents.length || hz <= 0) {
+      // No centroid — fall back to band heuristic
+      return band === "low" ? 0 : band === "mid" ? 2 : 3;
+    }
+    if (hz < q1) return 0;
+    if (hz < q2) return 1;
+    if (hz < q3) return 2;
+    return 3;
+  };
+
+  // Sustain probe: starting at frame `f`, how many ms of continuous above-silence
+  // energy do we have before the next onset (or before audio drops below SILENCE_RMS)?
+  const sustainMsFrom = (fromFrame: number, untilMs: number): number => {
+    if (!frames) return 0;
+    const { rms, frameMs } = frames;
+    const maxFrames = Math.min(rms.length, fromFrame + Math.ceil(untilMs / frameMs));
+    let last = fromFrame;
+    for (let f = fromFrame + 1; f < maxFrames; f++) {
+      if (rms[f] < SILENCE_RMS) break;
+      last = f;
+    }
+    return (last - fromFrame) * frameMs;
+  };
 
   for (let i = 0; i < onsets.length; i++) {
     const o = onsets[i];
     const time = Math.round(o.timeMs);
-
-    // Lane choice: band-biased, but always different from previous lane
-    const candidates = o.band === "low" ? [0, 3, 1, 2] : [1, 2, 0, 3];
-    let lane = candidates.find((c) => c !== prevLane) ?? candidates[0];
-
-    // Look ahead: simultaneous onset (within 60ms) → double
     const next = onsets[i + 1];
-    if (next && next.timeMs - o.timeMs < 60) {
-      const lane2 = [0, 1, 2, 3].find((c) => c !== lane && c !== prevLane) ?? (lane + 2) % 4;
-      notes.push({ time, lane, type: "double", lane2 });
-      prevLane = lane2;
-      i++; // consume next
+    const gap = next ? next.timeMs - o.timeMs : Infinity;
+
+    // 1) DOUBLE — simultaneous hit in different bands
+    if (next && gap < SIMULTANEOUS_MS && next.band !== o.band) {
+      const a = pitchToLane(o.centroidHz, o.band);
+      let b = pitchToLane(next.centroidHz, next.band);
+      if (b === a) b = (a + 2) % 4; // ensure two distinct lanes
+      // Avoid repeating prevLane on either lane of the double
+      const laneA = a === prevLane ? (a + 1) % 4 : a;
+      const laneB = b === prevLane || b === laneA ? [0, 1, 2, 3].find((l) => l !== laneA && l !== prevLane)! : b;
+      notes.push({ time, lane: laneA, type: "double", lane2: laneB });
+      prevLane = laneB;
+      i++; // consume next onset
       continue;
     }
 
-    // Look ahead: long gap to next onset → hold tile that fills until then
-    const gap = next ? next.timeMs - o.timeMs : 0;
-    const type: TileType =
-      gap > beatMs * 1.4 && gap < beatMs * 5
-        ? "hold"
-        : "tap";
+    // 2) HOLD — sustained energy after this onset, longer than HOLD_MIN_MS
+    //    and bounded by either the next onset or natural silence.
+    const sustain = sustainMsFrom(o.frame, Math.min(gap, HOLD_MAX_MS));
+    let lane = pitchToLane(o.centroidHz, o.band);
+    if (lane === prevLane) lane = (lane + 1) % 4;
 
-    if (type === "hold") {
-      const holdDuration = Math.min(Math.round(gap * 0.85), Math.round(beatMs * 4));
-      notes.push({ time, lane, type, holdDuration });
+    if (sustain >= HOLD_MIN_MS) {
+      const holdDuration = Math.min(Math.round(sustain), HOLD_MAX_MS);
+      notes.push({ time, lane, type: "hold", holdDuration });
     } else {
-      notes.push({ time, lane, type });
+      // 3) TAP — short onset; silence before the next onset is preserved as gap.
+      notes.push({ time, lane, type: "tap" });
     }
     prevLane = lane;
   }
