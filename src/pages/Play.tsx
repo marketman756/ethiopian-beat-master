@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { songs } from "@/lib/songs";
@@ -19,6 +19,7 @@ import {
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useAuth } from "@/contexts/AuthContext";
 import { submitScore } from "@/lib/scores";
+import { updateMyProgress, finishRoom } from "@/lib/multiplayer";
 import { toast } from "sonner";
 
 const HIT_ZONE_Y = 87;        // % of playfield height (matches CanvasRenderer.HIT_ZONE_RATIO)
@@ -39,11 +40,14 @@ function chartTimeToY(noteTime: number, songTimeMs: number, fallDurationMs: numb
 const Play = () => {
   const { songId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const matchRoomId = searchParams.get("room");
   const song = songs.find((s) => s.id === songId);
   const audio = useGameAudio();
   const { user } = useAuth();
   const playStartedAtRef = useRef<number>(0);
   const submittedRef = useRef<string | null>(null);
+  const lastBroadcastRef = useRef<number>(0);
 
   // ── React state (UI-driven only) ──
   const [chart, setChart] = useState<TileChart | null>(() =>
@@ -568,6 +572,42 @@ const Play = () => {
       }
     });
   }, [gamePhase, user, chart, songId]);
+
+  // ── Multiplayer: broadcast live score; mark finished on song end / fail ──
+  useEffect(() => {
+    if (!matchRoomId || !user) return;
+    const id = window.setInterval(() => {
+      const now = performance.now();
+      if (now - lastBroadcastRef.current < 250) return;
+      lastBroadcastRef.current = now;
+      const judged = perfectsRef.current + greatsRef.current + coolsRef.current;
+      const accuracy = judged === 0 ? 0
+        : Math.round(((perfectsRef.current + greatsRef.current * 0.6 + coolsRef.current * 0.3) / judged) * 10000) / 100;
+      updateMyProgress(matchRoomId, {
+        score: scoreRef.current,
+        combo: comboRef.current,
+        max_combo: maxComboRef.current,
+        accuracy,
+      });
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [matchRoomId, user]);
+
+  useEffect(() => {
+    if (!matchRoomId || !user) return;
+    if (gamePhase !== "song-complete" && gamePhase !== "failed") return;
+    const judged = perfectsRef.current + greatsRef.current + coolsRef.current;
+    const accuracy = judged === 0 ? 0
+      : Math.round(((perfectsRef.current + greatsRef.current * 0.6 + coolsRef.current * 0.3) / judged) * 10000) / 100;
+    updateMyProgress(matchRoomId, {
+      score: scoreRef.current,
+      combo: comboRef.current,
+      max_combo: maxComboRef.current,
+      accuracy,
+      finished: true,
+    });
+    finishRoom(matchRoomId);
+  }, [matchRoomId, user, gamePhase]);
 
   const handleRevive = useCallback(() => {
     if (!failStateRef.current) return;

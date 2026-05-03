@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      match_participants: {
+        Row: {
+          accuracy: number
+          combo: number
+          display_name: string
+          finished: boolean
+          id: string
+          joined_at: string
+          max_combo: number
+          room_id: string
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number
+          combo?: number
+          display_name: string
+          finished?: boolean
+          id?: string
+          joined_at?: string
+          max_combo?: number
+          room_id: string
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accuracy?: number
+          combo?: number
+          display_name?: string
+          finished?: boolean
+          id?: string
+          joined_at?: string
+          max_combo?: number
+          room_id?: string
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "match_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_rooms: {
+        Row: {
+          code: string
+          created_at: string
+          host_id: string
+          id: string
+          song_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          host_id: string
+          id?: string
+          song_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          host_id?: string
+          id?: string
+          song_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

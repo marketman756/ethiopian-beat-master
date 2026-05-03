@@ -9,6 +9,8 @@ import Library from "./pages/Library";
 import Play from "./pages/Play";
 import Leaderboard from "./pages/Leaderboard";
 import Auth from "./pages/Auth";
+import Multiplayer from "./pages/Multiplayer";
+import MatchRoom from "./pages/MatchRoom";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
             <Route path="/library" element={<Library />} />
             <Route path="/play/:songId" element={<Play />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/multiplayer" element={<Multiplayer />} />
+            <Route path="/multiplayer/:code" element={<MatchRoom />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
