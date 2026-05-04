@@ -22,12 +22,12 @@ export async function logError(
   try {
     const user_id = await currentUserId();
     await supabase.from("client_errors").insert({
-      user_id,
+      user_id: user_id ?? undefined,
       message: message.slice(0, 2000),
-      stack: stack?.slice(0, 8000) ?? null,
-      url: typeof window !== "undefined" ? window.location.href : null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      context: context ?? null,
+      stack: stack?.slice(0, 8000),
+      url: typeof window !== "undefined" ? window.location.href : undefined,
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+      context: (context ?? undefined) as never,
     });
   } catch {
     /* swallow */
@@ -51,10 +51,10 @@ export async function logEvent(
   try {
     const user_id = await currentUserId();
     await supabase.from("gameplay_events").insert({
-      user_id,
+      user_id: user_id ?? undefined,
       event_type,
-      song_id: song_id ?? null,
-      payload: payload ?? null,
+      song_id: song_id ?? undefined,
+      payload: (payload ?? undefined) as never,
     });
   } catch {
     /* swallow */
