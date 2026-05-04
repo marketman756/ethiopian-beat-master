@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music, Trophy, Library, LogIn, LogOut, User } from "lucide-react";
+import { Music, Trophy, Library, LogIn, LogOut, User, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -54,6 +54,9 @@ const Navbar = ({ variant = "light" }: { variant?: "light" | "dark" }) => {
                   {profile?.is_guest && <span className="ml-2 text-xs text-muted-foreground">(guest)</span>}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings"><SettingsIcon className="mr-2 h-4 w-4" /> Settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => signOut()}>
                   <LogOut className="mr-2 h-4 w-4" /> Sign out
                 </DropdownMenuItem>

@@ -11,6 +11,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Auth from "./pages/Auth";
 import Multiplayer from "./pages/Multiplayer";
 import MatchRoom from "./pages/MatchRoom";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/multiplayer" element={<Multiplayer />} />
             <Route path="/multiplayer/:code" element={<MatchRoom />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
