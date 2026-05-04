@@ -19,6 +19,7 @@ import {
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useAuth } from "@/contexts/AuthContext";
 import { submitScore } from "@/lib/scores";
+import { logEvent } from "@/lib/telemetry";
 import { updateMyProgress, finishRoom } from "@/lib/multiplayer";
 import { toast } from "sonner";
 
@@ -525,6 +526,7 @@ const Play = () => {
     playStartedAtRef.current = performance.now();
     submittedRef.current = null;
     setGamePhase("playing");
+    logEvent("song_start", songId);
   }, [resetGame, audio]);
 
   // Auto-pause when the tab is backgrounded so AudioContext doesn't drift
@@ -549,6 +551,12 @@ const Play = () => {
     const durationMs = Math.max(0, performance.now() - playStartedAtRef.current);
     if (durationMs < 5000) return; // matches server-side check
     submittedRef.current = songId + ":" + gamePhase;
+    logEvent(gamePhase === "failed" ? "song_fail" : "song_finish", songId, {
+      score: scoreRef.current,
+      stars: starsRef.current,
+      maxCombo: maxComboRef.current,
+      durationMs: Math.round(durationMs),
+    });
     const misses = Math.max(
       0,
       chart.notes.length - perfectsRef.current - greatsRef.current - coolsRef.current,
