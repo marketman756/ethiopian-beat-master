@@ -22,7 +22,7 @@ export interface SubmitScoreInput {
  * the client should still proceed (server falls back to legacy path).
  */
 export async function issueScoreNonce(songId: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("issue_score_nonce", { p_song_id: songId });
+  const { data, error } = await (supabase as any).rpc("issue_score_nonce", { p_song_id: songId });
   if (error || !data) return null;
   return data as string;
 }
@@ -35,7 +35,7 @@ export async function issueScoreNonce(songId: string): Promise<string | null> {
 export async function submitScore(input: SubmitScoreInput): Promise<{ error: Error | null }> {
   let error;
   if (input.nonce) {
-    ({ error } = await supabase.rpc("submit_score_v2", {
+    ({ error } = await (supabase as any).rpc("submit_score_v2", {
       p_song_id: input.songId,
       p_nonce: input.nonce,
       p_score: input.score,

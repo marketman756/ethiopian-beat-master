@@ -116,7 +116,7 @@ export async function fetchParticipants(roomId: string): Promise<MatchParticipan
  * Safe to call opportunistically — server enforces auth and is idempotent.
  */
 export async function cleanupStaleRooms(): Promise<number> {
-  const { data, error } = await supabase.rpc("cleanup_stale_match_rooms");
+  const { data, error } = await (supabase as any).rpc("cleanup_stale_match_rooms");
   if (error || typeof data !== "number") return 0;
   return data;
 }
