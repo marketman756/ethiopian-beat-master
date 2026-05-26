@@ -36,10 +36,28 @@ export function useGameAudio(): GameAudioState {
   // Hardware latency (output + base), measured once per context. Subtracted
   // from reported song time so visuals align with what the user actually hears.
   const hardwareLatencyMsRef = useRef(0);
+  // Drift correction: when ctx.currentTime drifts >30ms from the AudioBufferSource's
+  // expected position we nudge songStartCtxTime by half the delta to converge smoothly.
+  const lastDriftCheckRef = useRef(0);
+  const driftAccumRef = useRef(0);
 
   const getCtx = useCallback((): AudioContext => {
     if (!ctxRef.current) {
       ctxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Warm-up: schedule a few silent gain ramps so the audio thread is hot
+      // before the first user-perceptible sound. Mitigates cold-start jitter.
+      try {
+        const c = ctxRef.current;
+        const g = c.createGain();
+        g.gain.value = 0;
+        g.connect(c.destination);
+        for (let i = 0; i < 3; i++) {
+          const o = c.createOscillator();
+          o.connect(g);
+          o.start(c.currentTime + i * 0.01);
+          o.stop(c.currentTime + i * 0.01 + 0.005);
+        }
+      } catch { /* ignore */ }
     }
     if (ctxRef.current.state === "suspended") {
       ctxRef.current.resume();
@@ -136,7 +154,27 @@ export function useGameAudio(): GameAudioState {
       return pausedSongTimeRef.current + offset;
     }
     const ctx = getCtx();
-    return (ctx.currentTime - songStartCtxTimeRef.current) * 1000 + offset;
+    const songMs = (ctx.currentTime - songStartCtxTimeRef.current) * 1000;
+    // ── Drift correction (every 500ms) ──
+    // If wall-clock estimate diverges from the source's scheduled position by
+    // >30ms, smoothly nudge songStartCtxTime to converge.
+    const nowPerf = performance.now();
+    if (sourceRef.current && nowPerf - lastDriftCheckRef.current > 500 && songMs > 0) {
+      lastDriftCheckRef.current = nowPerf;
+      // Expected position based on buffer playback at given rate.
+      // ctx.currentTime should equal songStartCtxTime + (sourcePlayhead / rate).
+      // Browsers don't expose playhead directly, but we can detect cumulative
+      // drift by comparing two successive samples; large jumps (>30ms / interval)
+      // mean the audio thread skipped or stalled.
+      const expected = driftAccumRef.current + 500;
+      const drift = songMs - expected;
+      if (Math.abs(drift) > 30) {
+        // Nudge by half — exponential convergence avoids visual stutter.
+        songStartCtxTimeRef.current += (drift / 2) / 1000;
+      }
+      driftAccumRef.current = songMs;
+    }
+    return songMs + offset;
   }, [getCtx]);
 
   const isLoaded = useCallback(() => bufferRef.current !== null, []);

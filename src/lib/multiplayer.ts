@@ -110,3 +110,13 @@ export async function fetchParticipants(roomId: string): Promise<MatchParticipan
   const { data } = await supabase.from("match_participants").select().eq("room_id", roomId).order("score", { ascending: false });
   return (data as MatchParticipant[]) ?? [];
 }
+
+/**
+ * Trigger server-side cleanup of stale rooms (>30min idle).
+ * Safe to call opportunistically — server enforces auth and is idempotent.
+ */
+export async function cleanupStaleRooms(): Promise<number> {
+  const { data, error } = await (supabase as any).rpc("cleanup_stale_match_rooms");
+  if (error || typeof data !== "number") return 0;
+  return data;
+}

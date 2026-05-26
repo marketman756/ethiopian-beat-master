@@ -18,7 +18,7 @@ import {
 } from "@/components/game/GameOverlays";
 import { useGameAudio } from "@/hooks/useGameAudio";
 import { useAuth } from "@/contexts/AuthContext";
-import { submitScore } from "@/lib/scores";
+import { submitScore, issueScoreNonce } from "@/lib/scores";
 import { logEvent } from "@/lib/telemetry";
 import { updateMyProgress, finishRoom } from "@/lib/multiplayer";
 import { toast } from "sonner";
@@ -49,6 +49,7 @@ const Play = () => {
   const playStartedAtRef = useRef<number>(0);
   const submittedRef = useRef<string | null>(null);
   const lastBroadcastRef = useRef<number>(0);
+  const scoreNonceRef = useRef<string | null>(null);
 
   // ── React state (UI-driven only) ──
   const [chart, setChart] = useState<TileChart | null>(() =>
@@ -525,6 +526,11 @@ const Play = () => {
     audio.startPlayback(LEAD_IN_MS, 1);
     playStartedAtRef.current = performance.now();
     submittedRef.current = null;
+    // Issue session nonce (Phase 2 anti-cheat). Fire-and-forget; null is OK.
+    scoreNonceRef.current = null;
+    if (songId) {
+      issueScoreNonce(songId).then((n) => { scoreNonceRef.current = n; });
+    }
     setGamePhase("playing");
     logEvent("song_start", songId);
   }, [resetGame, audio]);
@@ -572,6 +578,7 @@ const Play = () => {
       totalNotes: chart.notes.length,
       durationMs: Math.round(durationMs),
       stars: starsRef.current,
+      nonce: scoreNonceRef.current ?? undefined,
     }).then(({ error }) => {
       if (error) {
         console.warn("[score] submission rejected:", error.message);
