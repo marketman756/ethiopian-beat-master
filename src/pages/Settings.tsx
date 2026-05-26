@@ -8,8 +8,12 @@ import {
   CALIBRATION_RANGE,
   getCalibrationOffset,
   setCalibrationOffset,
+  getVisualOffset,
+  setVisualOffset,
+  detectAudioOutputKind,
+  suggestedOffsetForOutputKind,
 } from "@/lib/calibration";
-import { Settings as SettingsIcon, Volume2, RotateCcw, Save } from "lucide-react";
+import { Settings as SettingsIcon, Volume2, RotateCcw, Save, Eye, Headphones } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -23,6 +27,8 @@ const BEAT_INTERVAL_MS = 60_000 / BPM;
 
 const Settings = () => {
   const [offset, setOffset] = useState<number>(() => getCalibrationOffset());
+  const [visualOffset, setVisualOffsetState] = useState<number>(() => getVisualOffset());
+  const [outputKind, setOutputKind] = useState<string>("unknown");
   const [running, setRunning] = useState(false);
   const [taps, setTaps] = useState<number[]>([]);
   const [pulse, setPulse] = useState(0);
@@ -32,6 +38,17 @@ const Settings = () => {
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => { stopRef.current?.(); }, []);
+
+  // Detect audio output kind on mount; if BT, suggest +180ms offset.
+  useEffect(() => {
+    (async () => {
+      const kind = await detectAudioOutputKind();
+      setOutputKind(kind);
+      if (kind === "bluetooth" && Math.abs(getCalibrationOffset()) < 30) {
+        toast.info("Bluetooth detected — try +180ms or run calibration");
+      }
+    })();
+  }, []);
 
   const stop = () => {
     stopRef.current?.();
@@ -115,6 +132,19 @@ const Settings = () => {
     toast.success(`Saved offset: ${next}ms`);
   };
 
+  const saveVisual = () => {
+    const next = setVisualOffset(visualOffset);
+    setVisualOffsetState(next);
+    toast.success(`Visual offset: ${next}ms`);
+  };
+
+  const applySuggested = () => {
+    const s = suggestedOffsetForOutputKind(outputKind);
+    const next = setCalibrationOffset(s);
+    setOffset(next);
+    toast.success(`Applied ${s}ms (${outputKind})`);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -128,6 +158,17 @@ const Settings = () => {
           <div className="flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Audio Calibration</h2>
+          </div>
+          <div className="flex items-center justify-between rounded-md border bg-secondary/30 px-3 py-2 text-sm">
+            <span className="flex items-center gap-2">
+              <Headphones className="h-4 w-4 text-primary" />
+              Detected output: <strong className="capitalize">{outputKind}</strong>
+            </span>
+            {outputKind !== "unknown" && (
+              <Button size="sm" variant="outline" onClick={applySuggested}>
+                Apply +{suggestedOffsetForOutputKind(outputKind)}ms
+              </Button>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             If tiles feel early or late, calibrate your device. Tap along with the
@@ -184,6 +225,31 @@ const Settings = () => {
               </Button>
             </div>
           </div>
+        </Card>
+
+        <Card className="p-6 space-y-4 mt-6">
+          <div className="flex items-center gap-2">
+            <Eye className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Visual Calibration</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            If tiles appear to land before or after the hit-line on screen,
+            nudge the visual offset. Most users won't need this.
+          </p>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Visual offset</label>
+            <span className="font-mono tabular-nums text-sm">{visualOffset} ms</span>
+          </div>
+          <Slider
+            value={[visualOffset]}
+            min={CALIBRATION_RANGE.min}
+            max={CALIBRATION_RANGE.max}
+            step={1}
+            onValueChange={(v) => setVisualOffsetState(v[0])}
+          />
+          <Button size="sm" onClick={saveVisual}>
+            <Save className="mr-2 h-4 w-4" /> Save visual offset
+          </Button>
         </Card>
       </main>
       <Footer />
